@@ -3,9 +3,6 @@
     <v-card class="admin-card" elevation="4">
       <!-- Header -->
       <v-card-title class="admin-header">
-        <v-btn icon color="white" @click="goBack" class="mr-3">
-          <v-icon>mdi-arrow-left</v-icon>
-        </v-btn>
         <div class="header-content">
           <v-icon left color="" size="32">mdi-view-dashboard</v-icon>
           <span class="header-title">Scan Records</span>
@@ -18,11 +15,11 @@
       </v-card-title>
 
       <!-- Stats Cards -->
-      <v-card-text class="pt-6">
-        <v-row class="mb-4" justify="space-around" align="center">
+      <v-card-text class="pt-2 pb-2">
+        <v-row class="mb-2" justify="space-around" align="center">
           <v-col cols="12" sm="6" md="2">
             <v-card class="stat-card" color="#8B5CF6" dark>
-              <v-card-text>
+              <v-card-text class="pa-2">
                 <div class="stat-label">Total Scans</div>
                 <div class="stat-value">{{ totalScans }}</div>
               </v-card-text>
@@ -30,7 +27,7 @@
           </v-col>
           <v-col cols="12" sm="6" md="2">
             <v-card class="stat-card" color="#06B6D4" dark>
-              <v-card-text>
+              <v-card-text class="pa-2">
                 <div class="stat-label">FSC LH</div>
                 <div class="stat-value">{{ getColumnCount('FSC LH') }}</div>
               </v-card-text>
@@ -38,7 +35,7 @@
           </v-col>
           <v-col cols="12" sm="6" md="2">
             <v-card class="stat-card" color="#10B981" dark>
-              <v-card-text>
+              <v-card-text class="pa-2">
                 <div class="stat-label">FSC RH</div>
                 <div class="stat-value">{{ getColumnCount('FSC RH') }}</div>
               </v-card-text>
@@ -46,7 +43,7 @@
           </v-col>
           <v-col cols="12" sm="6" md="2">
             <v-card class="stat-card" color="#FB923C" dark>
-              <v-card-text>
+              <v-card-text class="pa-2">
                 <div class="stat-label">FSB LH</div>
                 <div class="stat-value">{{ getColumnCount('FSB LH') }}</div>
               </v-card-text>
@@ -54,7 +51,7 @@
           </v-col>
           <v-col cols="12" sm="6" md="2">
             <v-card class="stat-card" color="#F43F5E" dark>
-              <v-card-text>
+              <v-card-text class="pa-2">
                 <div class="stat-label">FSB RH</div>
                 <div class="stat-value">{{ getColumnCount('FSB RH') }}</div>
               </v-card-text>
@@ -63,7 +60,7 @@
         </v-row>
 
         <!-- Search and Filter -->
-        <v-row class="mb-4">
+        <v-row class="mb-2">
           <v-col cols="12" md="3">
             <v-text-field
               v-model="search"
@@ -207,6 +204,8 @@
 </template>
 
 <script>
+import api from '../services/api'
+
 export default {
   name: 'AdminView',
   data() {
@@ -219,6 +218,7 @@ export default {
       dateMenu: null,
       deleteDialog: false,
       itemToDelete: null,
+      records: [],
       headers: [
         { text: 'Batch Key', value: 'batchKey', sortable: true },
         { text: 'Row', value: 'row', sortable: true },
@@ -233,20 +233,9 @@ export default {
     }
   },
   mounted() {
-    // Regenerate QR codes and barcodes for existing records
-    this.$store.dispatch('regenerateAllImages')
+    this.loadAllKanbans();
   },
   computed: {
-    records() {
-      const scanRecords = this.$store.getters.getScanRecords || [];
-      return scanRecords.map((record, index) => ({
-        ...record,
-        batchKey: record.batchKey || 'KBN1', // Ensure batchKey exists
-        qrDialog: false,
-        barcodeDialog: false,
-        id: index
-      }));
-    },
     filteredRecords() {
       let filtered = this.records;
       
@@ -272,16 +261,51 @@ export default {
       return filtered;
     },
     batchOptions() {
-      const batches = this.$store.getters.getAllBatches || []
-      return batches.length > 0 ? batches : ['KBN1']
+      const uniqueBatches = [...new Set(this.records.map(record => record.batchKey))];
+      return uniqueBatches.length > 0 ? uniqueBatches : [];
     },
     totalScans() {
       return this.filteredRecords.length;
     }
   },
   methods: {
-    goBack() {
-      this.$router.push('/kanban');
+    async loadAllKanbans() {
+      try {
+        this.loading = true;
+        const station = this.$store.state.user?.station;
+        const response = await api.get('/kanbans', {
+          params: { station }
+        });
+        const batches = response.data;
+        
+        // Load data for all batches
+        const allData = [];
+        for (const batch of batches) {
+          try {
+            const dataResponse = await api.get(`/kanbans/${batch.id}/data`, {
+              params: { station }
+            });
+            const batchData = dataResponse.data.map(item => ({
+              ...item,
+              column: item.columnName,  // Map API's columnName to column
+              qrData: item.value,        // Map API's value to qrData
+              timestamp: item.timestamp || item.created_at || item.createdAt || new Date().toISOString(),
+              batchKey: batch.name,
+              id: `${batch.id}-${item.id}`
+            }));
+            allData.push(...batchData);
+          } catch (err) {
+            console.error(`Failed to load data for batch ${batch.id}:`, err);
+          }
+        }
+        
+        this.records = allData;
+        console.log('All kanbans loaded:', allData);
+      } catch (error) {
+        console.error('Failed to load kanbans:', error);
+      } finally {
+        this.loading = false;
+      }
     },
     getColumnCount(columnName) {
       return this.filteredRecords.filter(record => record.column === columnName).length;
@@ -297,7 +321,8 @@ export default {
     },
     confirmDelete() {
       if (this.itemToDelete) {
-        this.$store.dispatch('deleteScanRecord', this.itemToDelete.id);
+        // TODO: Implement delete endpoint
+        this.records = this.records.filter(r => r.id !== this.itemToDelete.id);
         this.deleteDialog = false;
         this.itemToDelete = null;
       }
@@ -339,59 +364,59 @@ export default {
 .admin-container {
   min-height: 100vh;
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-  padding: 24px;
+  padding: 12px;
 }
 
 .admin-card {
-  border-radius: 16px;
+  border-radius: 12px;
   overflow: hidden;
 }
 
 .admin-header {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  padding: 24px;
+  padding: 16px 20px;
 }
 
 .header-content {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .header-title {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 700;
   letter-spacing: 0.5px;
 }
 
 .stat-card {
-  border-radius: 12px;
+  border-radius: 8px;
   transition: transform 0.2s;
 }
 
 .stat-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-2px);
 }
 
 .stat-label {
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 600;
   opacity: 1;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  margin-bottom: 8px;
+  letter-spacing: 0.8px;
+  margin-bottom: 4px;
   color: white;
 }
 
 .stat-value {
-  font-size: 32px;
+  font-size: 24px;
   font-weight: 900;
   color: white;
 }
 
 .records-table {
-  border-radius: 12px;
+  border-radius: 8px;
   overflow: hidden;
 }
 
@@ -403,7 +428,21 @@ export default {
   font-weight: 700;
   color: #1f2937;
   text-transform: uppercase;
-  font-size: 12px;
-  letter-spacing: 1px;
+  font-size: 11px;
+  letter-spacing: 0.8px;
+  padding: 8px 4px !important;
+}
+
+::v-deep .v-data-table tbody td {
+  padding: 8px 4px !important;
+  height: auto;
+}
+
+::v-deep .v-card__text {
+  padding: 8px 12px !important;
+}
+
+::v-deep .v-col {
+  padding: 4px !important;
 }
 </style>

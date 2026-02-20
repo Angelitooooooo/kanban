@@ -6,6 +6,7 @@ exports.up = function (knex) {
     table.integer("batchID").unsigned().references("id").inTable("kanbans").onDelete("CASCADE");
     table.integer("rowPage");
     table.text("value");
+    table.string("station", 255);
     table.timestamps(true, true);
   });
 };

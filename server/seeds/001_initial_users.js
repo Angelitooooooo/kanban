@@ -7,12 +7,19 @@ exports.seed = async function(knex) {
     {
       username: 'admin',
       password: 'admin123',
-      isAdmin: true
+      isAdmin: true,
     },
     {
       username: 'user1',
       password: 'user123',
-      isAdmin: false
+      isAdmin: false,
+      station : 1
+    },
+    {
+      username: 'user2',
+      password: 'user123',
+      isAdmin: false,
+      station : 2
     }
   ]);
 };

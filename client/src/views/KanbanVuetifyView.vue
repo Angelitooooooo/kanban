@@ -41,6 +41,7 @@
                   @change="loadBatchData"
                 ></v-autocomplete>
               </div>
+              <div class="kanban-hero-title">Station: {{ station }}</div>
               <div class="kanban-hero-meta">
                 <v-chip class="kanban-chip" label>Rows {{ rowRangeLabel }}</v-chip>
                 <v-btn
@@ -302,6 +303,9 @@ export default {
       const start = (this.rowPage * this.rowsPerPage) + 1;
       const end = Math.min(start + (this.rowsPerPage - 1), this.totalRows);
       return `${start}-${end} of ${this.totalRows}`;
+    },
+    station() {
+      return this.$store.state.user?.station || '';
     }
   },
   mounted() {
@@ -321,13 +325,15 @@ export default {
         async fetchBatches() {
           try {
             this.isFetchingBatches = true;
-            const response = await api.get('/kanbans');
+            const station = this.$store.state.user?.station;
+            const response = await api.get('/kanbans', {
+              params: { station }
+            });
             this.batchList = response.data;
             console.log('Batches fetched:', this.batchList);
-            // Set the first batch as default if available
+            // Set the first batch as default if available (data loads on selection)
             if (this.batchList.length > 0 && !this.selectedBatchId) {
               this.selectedBatchId = this.batchList[0].id;
-              await this.loadBatchData();
             }
           } catch (error) {
             console.error('Failed to fetch batches:', error);
@@ -351,7 +357,10 @@ export default {
             // Reset row page to show first rows (1-5)
             this.rowPage = 0;
             
-            const response = await api.get(`/kanbans/${this.selectedBatchId}/data`);
+            const station = this.$store.state.user?.station;
+            const response = await api.get(`/kanbans/${this.selectedBatchId}/data`, {
+              params: { station }
+            });
             const kanbanSetData = response.data;
             
             // Clear existing data in all columns
@@ -432,9 +441,12 @@ export default {
           if (!batchName) return;
           
           try {
+            const station = this.$store.state.user?.station;
+            const userId = this.$store.state.user?.userId;
             const response = await api.post('/kanbans', {
               name: batchName,
-              data_set: this.$store.state.user?.data_set || String(this.dataSet)
+              station: station,
+              userId: userId
             });
             
             // Refresh batch list and select the new batch
@@ -657,7 +669,8 @@ export default {
                 column: column.header,
                 batchKey: this.selectedBatchId,
                 setIndex: this.currentSet,
-                rowPage: this.rowPage
+                rowPage: this.rowPage,
+                station: this.$store.state.user?.station
               });
               
               this.playBeep();

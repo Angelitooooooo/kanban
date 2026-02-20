@@ -100,6 +100,7 @@ export default {
           userId: data.user.id,
           isAdmin: data.user.isAdmin,
           data_set: data.user.data_set,
+          station: data.user.station,
           remember: this.form.remember
         })
 
