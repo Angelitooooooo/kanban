@@ -2,7 +2,7 @@
   <v-container fluid class="pa-0 kanban-bg-pro fullpage-container" style="min-height: 100vh; min-width: 100vw; padding: 2vw 2vw 0 2vw; box-sizing: border-box;">
     <v-row class="fill-height fullpage-row" align="stretch" justify="center" style="height: 100vh; min-height: 100vh;">
       <v-col cols="12" class="pa-0 fullpage-col" style="height: 100vh; min-height: 100vh;">
-        <v-card elevation="0" class="pa-6 kanban-card-pro fullpage-card flat-card kanban-inner-padding" style="position: relative; height: calc(100vh - 70px - 4vw); min-height: calc(100vh - 70px - 4vw); width: calc(100vw - 4vw); min-width: calc(100vw - 4vw); border-radius: 0; box-shadow: none; margin: 0 auto;">
+        <v-card elevation="0" class="pa-2 pt-2 kanban-card-pro fullpage-card flat-card kanban-inner-padding" style="position: relative; height: calc(100vh - 70px - 4vw); min-height: calc(100vh - 70px - 4vw); width: calc(100vw - 4vw); min-width: calc(100vw - 4vw); border-radius: 0; box-shadow: none; margin: 0 auto;">
           <v-progress-linear
             v-if="isGenerating || delayedLoading"
             color="primary"
@@ -786,7 +786,7 @@ export default {
 .kanban-bg-pro::before{content:"";position:absolute;inset:-20% -10% auto auto;width:420px;height:420px;background:radial-gradient(circle at center,rgba(25,118,210,0.16),rgba(25,118,210,0));filter:blur(6px);pointer-events:none;}
 .kanban-bg-pro::after{content:"";position:absolute;inset:auto auto -25% -10%;width:520px;height:520px;background:radial-gradient(circle at center,rgba(249,115,22,0.18),rgba(249,115,22,0));filter:blur(8px);pointer-events:none;}
 .kanban-card-pro{border-radius:22px;box-shadow:0 18px 48px rgba(31,41,55,0.12);background:linear-gradient(180deg,#ffffff 0%,#fbfdff 100%);border:1px solid rgba(31,41,55,0.06);}
-.kanban-hero{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:24px 20px;margin-bottom:20px;background:linear-gradient(135deg,rgba(25,118,210,0.08),rgba(255,107,107,0.04));border:1px solid rgba(25,118,210,0.15);border-radius:16px;box-shadow:0 4px 20px rgba(25,118,210,0.1);}
+.kanban-hero{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:12px 20px;margin-bottom:16px;background:linear-gradient(135deg,rgba(25,118,210,0.08),rgba(255,107,107,0.04));border:1px solid rgba(25,118,210,0.15);border-radius:16px;box-shadow:0 4px 20px rgba(25,118,210,0.1);}
 .kanban-hero-text{display:flex;flex-direction:row;align-items:center;gap:16px;}
 .kanban-hero-title{font-family:'Space Grotesk','Segoe UI',Tahoma,sans-serif;font-weight:800;font-size:28px;color:var(--header-pro);letter-spacing:0.6px;white-space:nowrap;background:linear-gradient(135deg,#1976d2,#1565c0);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
 .kanban-hero-subtitle{font-family:'DM Sans','Segoe UI',Tahoma,sans-serif;font-weight:500;font-size:14px;color:#5b6b82;}

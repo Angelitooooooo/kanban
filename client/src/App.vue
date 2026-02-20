@@ -1,6 +1,6 @@
 <template>
   <v-app>
-    <v-app-bar  app color="#1976d2" dark fixed elevation="4">
+    <v-app-bar v-if="showAppBar" app color="#1976d2" dark fixed elevation="4">
       <v-app-bar-nav-icon @click="drawer = !drawer" class="nav-icon"></v-app-bar-nav-icon>
       
       <v-icon left size="28" class="logo-icon">mdi-view-grid</v-icon>
