@@ -305,6 +305,98 @@ const saveQRScan = async (req, res) => {
   }
 };
 
+// Get all kanban print records
+const getAllKanbanPrints = async (req, res) => {
+  try {
+    const { user_id, all } = req.query;
+    
+    let query = db('kanban_print');
+    
+    // If 'all' parameter is true, return all records without filtering
+    if (all !== 'true' && user_id) {
+      query = query.where('user_id', user_id);
+    }
+    
+    const kanbanPrints = await query.select('*').orderBy('id', 'desc');
+    res.status(200).json(kanbanPrints);
+  } catch (error) {
+    console.error("Error fetching kanban prints:", error);
+    res.status(500).json({ error: "Failed to fetch kanban prints", details: error.message });
+  }
+};
+
+// Get kanban print records for Station 1 (user_id: 11)
+const getKanbanPrintsStation1 = async (req, res) => {
+  try {
+    const kanbanPrints = await db('kanban_print')
+      .where('user_id', 11)
+      .select('*')
+      .orderBy('id', 'desc');
+    
+    res.status(200).json(kanbanPrints);
+  } catch (error) {
+    console.error("Error fetching kanban prints for Station 1:", error);
+    res.status(500).json({ error: "Failed to fetch kanban prints for Station 1", details: error.message });
+  }
+};
+
+// Create/Save a kanban print record
+const createKanbanPrint = async (req, res) => {
+  try {
+    const { kanban, printCopies, user_id } = req.body;
+    
+    if (!kanban) {
+      return res.status(400).json({ error: "Kanban value is required" });
+    }
+    
+    const newKanbanPrint = {
+      kanban,
+      printCopies: printCopies || 0,
+      user_id: user_id || 1
+    };
+    
+    const result = await db('kanban_print').insert(newKanbanPrint);
+    
+    res.status(201).json({ 
+      id: result[0],
+      message: "Kanban print record saved successfully",
+      data: newKanbanPrint
+    });
+  } catch (error) {
+    console.error("Error creating kanban print:", error);
+    res.status(500).json({ error: "Failed to save kanban print", details: error.message });
+  }
+};
+
+// Update a kanban print record
+const updateKanbanPrint = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { printCopies } = req.body;
+    
+    if (!id) {
+      return res.status(400).json({ error: "Kanban print ID is required" });
+    }
+    
+    const updated = await db('kanban_print')
+      .where('id', id)
+      .update({ printCopies });
+    
+    if (updated === 0) {
+      return res.status(404).json({ error: "Kanban print record not found" });
+    }
+    
+    res.status(200).json({ 
+      id,
+      message: "Kanban print record updated successfully",
+      printCopies
+    });
+  } catch (error) {
+    console.error("Error updating kanban print:", error);
+    res.status(500).json({ error: "Failed to update kanban print", details: error.message });
+  }
+};
+
 module.exports = {
   getAllKanbans,
   getKanbanStatistics,
@@ -315,5 +407,9 @@ module.exports = {
   getKanbanColumns,
   getAllKanbanSetData,
   createKanban,
-  saveQRScan
+  saveQRScan,
+  getAllKanbanPrints,
+  getKanbanPrintsStation1,
+  createKanbanPrint,
+  updateKanbanPrint
 };

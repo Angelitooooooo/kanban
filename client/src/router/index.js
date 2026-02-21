@@ -55,6 +55,11 @@ const routes = [
     name: 'users',
     component: () => import(/* webpackChunkName: "users" */ '../views/UserView.vue'),
     meta: { requiresAdmin: true }
+    },
+    {
+    path: '/station-one',
+    name: 'station-one',
+    component: () => import(/* webpackChunkName: "station-one" */ '../views/StationOneView.vue')
     }
 ]
 
@@ -71,26 +76,45 @@ import store from '../store'
 // Check admin routes
 router.beforeEach((to, from, next) => {
   const isAuth = store.getters.isAuthenticated;
-  const isAdmin = store.getters.isAdmin;
+  const isAdmin = store.state.user?.isAdmin;
+  const station = parseInt(store.state.user?.station);
 
-  // If trying to access admin route without being admin
-  if (to.meta.requiresAdmin && !isAdmin) {
+  // If not authenticated, redirect to login (unless already on it)
+  if (!isAuth) {
+    if (to.path === '/login') {
+      next();
+    } else {
+      next('/login');
+    }
+    return;
+  }
+
+  // Prevent redirect from login if already logged in
+  if (to.path === '/login') {
+    // Determine where to send authenticated user
+    if (station === 1) {
+      next('/station-one');
+    } else if (station === 2) {
+      next('/kanban');
+    } else if (isAdmin === 1) {
+      next('/admin');
+    } else {
+      next('/');
+    }
+    return;
+  }
+
+  // User is authenticated - enforce station/admin routes
+  if (station === 1 && to.path !== '/station-one') {
+    next('/station-one');
+    return;
+  } else if (station === 2 && to.path !== '/kanban') {
     next('/kanban');
     return;
   }
 
-  // Prevent logged-in users from accessing /login
-  if (to.path === '/login' && isAuth) {
-    if (isAdmin) {
-      next('/admin');
-    } else {
-      next('/kanban');
-    }
-  } else if (to.path !== '/login' && !isAuth) {
-    next('/login');
-  } else {
-    next();
-  }
+  // Allow access to other routes
+  next();
 });
 
 export default router

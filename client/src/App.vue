@@ -1,7 +1,7 @@
 <template>
   <v-app>
     <v-app-bar v-if="showAppBar" app color="#1976d2" dark fixed elevation="4">
-      <v-app-bar-nav-icon @click="drawer = !drawer" class="nav-icon"></v-app-bar-nav-icon>
+      <v-app-bar-nav-icon v-if="isAdmin" @click="drawer = !drawer" class="nav-icon"></v-app-bar-nav-icon>
       
       <v-icon left size="28" class="logo-icon">mdi-view-grid</v-icon>
       <div class="app-title">Kanban System</div>
@@ -69,6 +69,12 @@
       <div class="nav-section">
         <p class="nav-section-label">MENU</p>
         <v-list class="nav-list">
+          <v-list-item v-if="isAdmin"  @click="goToStationOne" link class="nav-item" :class="{ 'nav-item-active': isStationOneRoute }" ripple>
+            <v-list-item-icon class="nav-item-icon">
+              <v-icon>mdi-clipboard-text-clock-outline</v-icon>
+            </v-list-item-icon>
+            <v-list-item-title class="nav-title">Station One</v-list-item-title>
+          </v-list-item>
           <v-list-item v-if="isAdmin" @click="goToAdmin" link class="nav-item" :class="{ 'nav-item-active': isAdminRoute }" ripple>
             <v-list-item-icon class="nav-item-icon">
               <v-icon>mdi-view-dashboard</v-icon>
@@ -80,6 +86,12 @@
               <v-icon>mdi-account-group</v-icon>
             </v-list-item-icon>
             <v-list-item-title class="nav-title">User Management</v-list-item-title>
+          </v-list-item>
+          <v-list-item v-if="isAdmin" @click="goToKanbans" link class="nav-item" :class="{ 'nav-item-active': isKanbansRoute }" ripple>
+            <v-list-item-icon class="nav-item-icon">
+              <v-icon>mdi-format-list-checks</v-icon>
+            </v-list-item-icon>
+            <v-list-item-title class="nav-title">Kanbans</v-list-item-title>
           </v-list-item>
         </v-list>
       </div>
@@ -248,8 +260,14 @@ export default {
     isAdminRoute() {
       return this.$route.name === 'AdminView' || this.$route.path === '/admin';
     },
+    isStationOneRoute() {
+      return this.$route.name === 'station-one' || this.$route.path === '/station-one';
+    },
     isUsersRoute() {
       return this.$route.name === 'users' || this.$route.path === '/users';
+    },
+    isKanbansRoute() {
+      return this.$route.name === 'kanbans' || this.$route.path === '/kanbans';
     },
     isPasswordFormValid() {
       const { newPassword, confirmPassword } = this.passwordForm;
@@ -266,12 +284,20 @@ export default {
       this.$router.push('/kanban');
       this.drawer = false;
     },
+    goToStationOne() {
+      this.$router.push('/station-one');
+      this.drawer = false;
+    },
     goToAdmin() {
       this.$router.push('/admin');
       this.drawer = false;
     },
     goToUsers() {
       this.$router.push('/users');
+      this.drawer = false;
+    },
+    goToKanbans() {
+      this.$router.push('/kanbans');
       this.drawer = false;
     },
     openAccountSettings() {

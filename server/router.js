@@ -10,8 +10,19 @@ const {
   getKanbanColumns,
   getAllKanbanSetData,
   createKanban,
-  saveQRScan
+  saveQRScan,
+  getAllKanbanPrints,
+  getKanbanPrintsStation1,
+  createKanbanPrint,
+  updateKanbanPrint
 } = require("./controllers/kanbanController");
+const {
+  saveErrorLog,
+  getAllErrorLogs,
+  getErrorLogsByRoute,
+  deleteErrorLog,
+  clearAllErrorLogs
+} = require("./controllers/errorLogController");
 
 const router = express.Router();
 
@@ -43,5 +54,18 @@ router.get("/kanbans/:id/columns", getKanbanColumns);
 router.get("/kanban-set/all", getAllKanbanSetData);
 router.post("/kanbans", createKanban);
 router.post("/qr-scan", saveQRScan);
+
+// Kanban Print Routes
+router.get("/kanban-prints", getAllKanbanPrints);
+router.get("/kanban-prints/station/1", getKanbanPrintsStation1);
+router.post("/kanban-prints", createKanbanPrint);
+router.put("/kanban-prints/:id", updateKanbanPrint);
+
+// Error Logs Routes
+router.post("/error-logs", saveErrorLog);
+router.get("/error-logs", getAllErrorLogs);
+router.get("/error-logs/route/:route", getErrorLogsByRoute);
+router.delete("/error-logs/:id", deleteErrorLog);
+router.delete("/error-logs", clearAllErrorLogs);
 
 module.exports = router;

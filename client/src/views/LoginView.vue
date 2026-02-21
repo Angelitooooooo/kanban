@@ -104,12 +104,10 @@ export default {
           remember: this.form.remember
         })
 
-        // Redirect based on admin status
-        if (data.user.isAdmin) {
-          this.$router.push('/admin')
-        } else {
-          this.$router.push('/kanban')
-        }
+        // Reload page to let router guard handle redirect cleanly
+        setTimeout(() => {
+          location.reload()
+        }, 500)
       } catch (error) {
         if (error.response?.data?.error) {
           this.error = error.response.data.error
