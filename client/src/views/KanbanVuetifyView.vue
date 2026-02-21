@@ -57,6 +57,7 @@
                   color="primary"
                   class="kanban-chip"
                   :disabled="isGenerating"
+                  :loading="isGenerating"
                   @click="printPage"
                 >
                   <v-icon left size="18">mdi-print</v-icon>
@@ -97,11 +98,14 @@
                                   <img v-if="column.items[rowIndex] && column.items[rowIndex].qrCode" :src="column.items[rowIndex].qrCode" alt="QR Code" class="qr-code-pro" />
                                 </center>
                               </div>
-                              <div class="bar-col-pro">
+                              <div style="text-align: center; width: 100%;">
+                                 <b>{{ column.items[rowIndex].qrData  }}</b> 
+                              </div>
+                              <!-- <div class="bar-col-pro">
                                 <center>
                                   <img v-if="column.items[rowIndex] && column.items[rowIndex].barcodeImg" :src="column.items[rowIndex].barcodeImg" alt="Barcode" class="barcode-img-pro" />
                                 </center>
-                              </div>
+                              </div> -->
                             </div>
                           </v-sheet>
                         </v-hover>
@@ -112,7 +116,7 @@
               </div>
             </v-row>
 
-            <div class="nav-controls mt-6" style="display: flex; justify-content: center; align-items: center; padding: 10px 0 10px 0;">
+            <div class="nav-controls mt-6" v-if="totalRows > 5" style="display: flex; justify-content: center; align-items: center; padding: 10px 0 10px 0;">
               <div class="pagination-pill">
                 <button
                   class="pagination-btn"
@@ -184,6 +188,7 @@ import QRCode from 'qrcode'
 import JsBarcode from 'jsbarcode'
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
 import api from '../services/api'
+import { printZebraLabels100Bulk } from '../utils/print'
 
 export default {
   name: 'KanbanVuetifyView',
@@ -209,7 +214,6 @@ export default {
       batchSearch: '',
       kanbanData: [
         {
-          scanCount: 1,
           columns: [
             {
               header: "FSC LH",
@@ -233,6 +237,27 @@ export default {
             },
             {
               header: "FSB RH",
+              type: "empty",
+              items: [
+     
+              ]
+            },
+            {
+              header: "RSB RH",
+              type: "empty",
+              items: [
+     
+              ]
+            },
+            {
+              header: "RSB LH",
+              type: "empty",
+              items: [
+     
+              ]
+            },
+            {
+              header: "RR Cushion",
               type: "empty",
               items: [
      
@@ -276,9 +301,6 @@ export default {
   computed: {
     currentData() {
       return this.kanbanData[this.currentSet]
-    },
-    scanCount() {
-      return this.currentData.scanCount
     },
     totalRows() {
       // Reference data_set from selected batch if available, otherwise use dataSet
@@ -334,6 +356,7 @@ export default {
             // Set the first batch as default if available (data loads on selection)
             if (this.batchList.length > 0 && !this.selectedBatchId) {
               this.selectedBatchId = this.batchList[0].id;
+              await this.loadBatchData();
             }
           } catch (error) {
             console.error('Failed to fetch batches:', error);
@@ -484,8 +507,45 @@ export default {
           oscillator.start(audioContext.currentTime);
           oscillator.stop(audioContext.currentTime + 0.15);
         },
-        printPage() {
-          window.print();
+        async printPage() {
+          try {
+            this.isGenerating = true;
+            if (!this.selectedBatchId) {
+              alert('Please select a batch to print');
+              return;
+            }
+
+            const selectedBatch = this.batchList.find(batch => batch.id === this.selectedBatchId);
+            if (!selectedBatch) {
+              alert('Selected batch not found');
+              return;
+            }
+
+            const dataResponse = await api.get(`/kanbans/${selectedBatch.id}/data`);
+            const batchItems = dataResponse.data || [];
+            const items = batchItems.map((item) => {
+              const createdDate = item.created_at ? new Date(item.created_at).toISOString().split('T')[0] : '';
+              return {
+                specification: item.value || '',
+                quantity: `40(1)`,
+                model: "036J",
+                manufacturingDate: createdDate,
+                qrData: item.value
+              };
+            });
+
+            if (items.length === 0) {
+              alert('No data found to print');
+              return;
+            }
+
+            await printZebraLabels100Bulk(items);
+          } catch (error) {
+            console.error('Failed to print labels:', error);
+            alert('Failed to print labels');
+          } finally {
+            this.isGenerating = false;
+          }
         },
         normalizeDataSet() {
           const target = Math.max(0, Number(this.dataSet) || 0);

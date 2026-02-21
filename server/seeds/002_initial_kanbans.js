@@ -4,49 +4,6 @@ exports.seed = async function(knex) {
   await knex('kanbans').del();
 
   // Inserts seed entries
-  const baseKanbans = [
-    {
-      name: 'Project Alpha',
-      data_set: '5',
-      station: '1'
-    },
-    {
-      name: 'Project Beta',
-      data_set: '6',
-      station: '2'
-    },
-    {
-      name: 'Project Gamma',
-      data_set: '7',
-      station: '1'
-    },
-    {
-      name: 'Project Delta',
-      data_set: '5',
-      station: '2'
-    },
-    {
-      name: 'Project Epsilon',
-      data_set: '6',
-      station: '1'
-    },
-    {
-      name: 'Project Zeta',
-      data_set: '4',
-      station: '2'
-    },
-    {
-      name: 'Project Eta',
-      data_set: '5',
-      station: '1'
-    },
-    {
-      name: 'Project Theta',
-      data_set: '7',
-      station: '2'
-    }
-  ];
-
   const extraCount = 40;
   const extraKanbans = [];
   for (let i = 1; i <= extraCount; i += 1) {
@@ -59,5 +16,5 @@ exports.seed = async function(knex) {
     });
   }
 
-  await knex('kanbans').insert([...baseKanbans, ...extraKanbans]);
+  await knex('kanbans').insert(extraKanbans);
 };

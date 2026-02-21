@@ -3,7 +3,7 @@ exports.seed = async function(knex) {
   await knex('kanban_set').del();
 
   // Inserts seed entries
-  const columns = ['FSC LH', 'FSC RH', 'FSB LH', 'FSB RH'];
+  const columns = ['FSC LH', 'FSC RH', 'FSB LH', 'FSB RH','RSB RH','RSB LH', 'RR Cushion'];
   const rowsPerBatch = 40;
   const rowsPerPage = 10;
   const batches = await knex('kanbans').select('id', 'name', 'station');
