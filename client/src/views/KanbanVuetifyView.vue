@@ -289,11 +289,8 @@ export default {
     this.generateAllQRCodes().then(() => {
       this.$nextTick(() => this.generateBarcodesForCurrentSet());
     });
-    
     // Listen for socket events to refresh data
-    this.$socket.on('refresh-kanban-prints', (data) => {
-      console.log('Received refresh-kanban-prints event:', data);
-      console.log('Refreshing kanban data for all users');
+    this.$socket.on('refresh-kanban-prints', () => {
       this.fetchBatches();
     });
   },
@@ -305,6 +302,20 @@ export default {
     this.$socket.off('refresh-kanban-prints');
   },
   methods: {
+            saveErrorLog(context, error) {
+              // Save error log to backend or local storage
+              // Example: send to backend API
+              try {
+                api.post('/error-log', {
+                  context,
+                  error: error?.message || String(error),
+                  stack: error?.stack || null,
+                  timestamp: new Date().toISOString()
+                });
+              } catch (logErr) {
+                console.error('Failed to save error log:', logErr);
+              }
+            },
         async fetchBatches() {
           try {
             this.isFetchingBatches = true;
@@ -319,14 +330,13 @@ export default {
               });
             }
             this.batchList = response.data;
-            console.log('Batches fetched:', this.batchList);
             // Set the first batch as default if available (data loads on selection)
             if (this.batchList.length > 0 && !this.selectedBatchId) {
               this.selectedBatchId = this.batchList[0].id;
               await this.loadBatchData();
             }
           } catch (error) {
-            console.error('Failed to fetch batches:', error);
+            this.saveErrorLog('fetchBatches', error);
           } finally {
             this.isFetchingBatches = false;
           }
@@ -456,9 +466,8 @@ export default {
             }
             
             this.$forceUpdate();
-            console.log('Batch data loaded successfully');
           } catch (error) {
-            console.error('Failed to load batch data:', error);
+            this.saveErrorLog('loadBatchData', error);
             this.error = 'Failed to load batch data';
             setTimeout(() => {
               this.error = '';
@@ -492,10 +501,8 @@ export default {
             this.rowPage = 0; // Reset row to 1-5
             
             this.$forceUpdate();
-            console.log('New batch created:', response.data);
           } catch (error) {
-            console.error('Failed to create new batch:', error);
-            alert('Failed to create new batch');
+            this.saveErrorLog('createNewBatch', error);
           }
         },
         playBeep() {
@@ -524,7 +531,6 @@ export default {
               }
             });
           });
-          console.log('Data normalized to target:', this.kanbanData);
         },
         goNextSet() {
           if (this.rowPage < this.maxRowPage) {
@@ -585,7 +591,6 @@ export default {
       if (scanType === 'Barcode') {
         // Check for duplicate barcode scan
         if (this.scannedList.includes(value)) {
-          console.log('DUPLICATE BARCODE: Value already scanned');
           Swal.fire({
             icon: 'warning',
             title: 'Duplicate Barcode',
@@ -600,14 +605,11 @@ export default {
         const trimmedBarcode = value.substring(1, 5);
         const Position = value.charAt(value.length - 1);
         if(Position == "R"){
-          console.log('Detected Barcode Scan (Right):', value);
           const fsbRhColumn = this.currentData.columns.find(col => col.header === 'FSB RH');
           if (fsbRhColumn) {
             const matchedIndex = fsbRhColumn.items.findIndex(
               item => item && item.qrData && item.qrData.slice(-4) === trimmedBarcode
             );
-            console.log('Trimmed Barcode:', trimmedBarcode);
-            console.log('Match Found at Index:', matchedIndex);
             
             if (matchedIndex !== -1) {
               // Generate barcode image for the scanned value
@@ -633,7 +635,6 @@ export default {
                   scannedBarcode: value,
                   scannedBarcodeImg: scannedBarcodeImg
                 });
-                console.log('Updated FSB RH at index', matchedIndex, 'with value:', value);
                 
                 // Save to database
                 this.sendBarcodeScan({
@@ -651,17 +652,13 @@ export default {
                 
                 this.playBeep();
               } catch (err) {
-                console.error('Failed to generate barcode:', err);
+                await this.saveErrorLog('/station-one', `Error fetching kanban prints: ${err.message}`);
               }
             } else {
               // No matching QR code found, place barcode at row based on last 4 characters
-              console.log('No matching QR code found for barcode:', trimmedBarcode);
-              
               // Extract numeric value from trimmedBarcode to determine row index
               const numericValue = parseInt(trimmedBarcode, 10);
               const calculatedIndex = isNaN(numericValue) ? 0 : Math.min(numericValue - 1, this.totalRows - 1);
-              
-              console.log('Placing at calculated index:', calculatedIndex, '(Row', calculatedIndex + 1, ')');
               
               // Generate barcode image
               const canvas = document.createElement('canvas');
@@ -686,7 +683,6 @@ export default {
                   scannedBarcode: value,
                   scannedBarcodeImg: scannedBarcodeImg
                 });
-                console.log('Placed barcode at FSB RH index', calculatedIndex, 'without QR match');
                 
                 // Save QR scan payload with null value to mark the row position
                 const qrPayload = {
@@ -718,19 +714,16 @@ export default {
                 
                 this.playBeep();
               } catch (err) {
-                console.error('Failed to generate barcode:', err);
+                await this.saveErrorLog('/station-one', `Error fetching kanban prints: ${err.message}`);
               }
             }
           }
         } else if(Position == "L"){
-          console.log('Detected Barcode Scan (Left):', value);
           const fsbLhColumn = this.currentData.columns.find(col => col.header === 'FSB LH');
           if (fsbLhColumn) {
             const matchedIndex = fsbLhColumn.items.findIndex(
               item => item && item.qrData && item.qrData.slice(-4) === trimmedBarcode
             );
-            console.log('Trimmed Barcode:', trimmedBarcode);
-            console.log('Match Found at Index:', matchedIndex);
             
             if (matchedIndex !== -1) {
               // Generate barcode image for the scanned value
@@ -756,7 +749,6 @@ export default {
                   scannedBarcode: value,
                   scannedBarcodeImg: scannedBarcodeImg
                 });
-                console.log('Updated FSB LH at index', matchedIndex, 'with value:', value);
                 
                 // Save to database
                 this.sendBarcodeScan({
@@ -774,17 +766,13 @@ export default {
                 
                 this.playBeep();
               } catch (err) {
-                console.error('Failed to generate barcode:', err);
+                await this.saveErrorLog('/station-one', `Error generating barcode image: ${err.message}`);
               }
             } else {
               // No matching QR code found, place barcode at row based on last 4 characters
-              console.log('No matching QR code found for barcode:', trimmedBarcode);
-              
               // Extract numeric value from trimmedBarcode to determine row index
               const numericValue = parseInt(trimmedBarcode, 10);
               const calculatedIndex = isNaN(numericValue) ? 0 : Math.min(numericValue - 1, this.totalRows - 1);
-              
-              console.log('Placing at calculated index:', calculatedIndex, '(Row', calculatedIndex + 1, ')');
               
               // Generate barcode image
               const canvas = document.createElement('canvas');
@@ -809,7 +797,6 @@ export default {
                   scannedBarcode: value,
                   scannedBarcodeImg: scannedBarcodeImg
                 });
-                console.log('Placed barcode at FSB LH index', calculatedIndex, 'without QR match');
                 
                 // Save QR scan payload with null value to mark the row position
                 const qrPayload = {
@@ -841,7 +828,7 @@ export default {
                 
                 this.playBeep();
               } catch (err) {
-                console.error('Failed to generate barcode:', err);
+                await this.saveErrorLog('/station-one', `Error fetching kanban prints: ${err.message}`);
               }
             }
           }
@@ -855,15 +842,11 @@ export default {
             showConfirmButton: false
           });
         }
-        console.log('Original Barcode:', value);
-        console.log('Trimmed Barcode (chars 1-4):', trimmedBarcode);
-        console.log('Last Character:', Position);
         return;
       }
 
       // If it's Unknown, show error and return
       if (scanType === 'Unknown') {
-        console.log('ERROR: Unknown scan type');
         Swal.fire({
           icon: 'error',
           title: 'Invalid Scan',
@@ -872,13 +855,10 @@ export default {
           timerProgressBar: true,
           showConfirmButton: false
         });
-        console.log('=== END SCAN DATA ===');
         return;
       }
 
-      console.log('=== SCAN DATA ===');
-      console.log('Raw Scanned Value:', rawValue);
-      console.log('Trimmed Value:', value);
+      // ...existing code...
       
 
 
@@ -890,11 +870,10 @@ export default {
             ? value.slice(11)
             : value.slice(7);
           
-          console.log('Trimmed for Batch Check:', trimmedValue);
-          console.log('Selected Batch Name:', selectedBatch.name);
+          // ...existing code...
           
           if (!trimmedValue.startsWith(selectedBatch.name)) {
-            console.log('ERROR: Scanned value does not match batch name');
+            // ...existing code...
             Swal.fire({
               icon: 'error',
               title: 'Model Mismatch',
@@ -922,13 +901,13 @@ export default {
         // Check if the scanned value starts with the column header
         if (normalizedValue.startsWith(normalizedHeader) || normalizedHeader.startsWith(normalizedValue.substring(0, normalizedHeader.length))) {
           column = col;
-          console.log('Matched Column:', col.header);
+          // ...existing code...
           break;
         }
       }
 
       if (!column) {
-        console.log('ERROR: No column matched');
+        // ...existing code...
         this.error = `QR code '${value}' does not match any column header.`;
         setTimeout(() => {
           this.error = '';
@@ -937,9 +916,9 @@ export default {
       }
 
       const matchKey = getMatchKey(value);
-      console.log('Match Key:', matchKey);
+      // ...existing code...
       if (!matchKey) {
-        console.log('ERROR: No valid match key');
+        // ...existing code...
         this.error = `QR code '${value}' does not have a valid match key.`;
         setTimeout(() => {
           this.error = '';
@@ -1011,13 +990,12 @@ export default {
       }
 
       this.rowPage = Math.floor(rowIndex / this.rowsPerPage);
-      console.log('Placing at Row Index:', rowIndex, '(Row', rowIndex + 1, ')');
-      console.log('Row Page:', this.rowPage);
+      // ...existing code...
 
       if (!this.scannedList.includes(value)) {
         this.scannedList.push(value);
       } else {
-        console.log('DUPLICATE: Value already scanned');
+        // ...existing code...
         Swal.fire({
           icon: 'warning',
           title: 'Duplicate QR Code',
@@ -1055,6 +1033,7 @@ export default {
               });
               resolve(canvas.toDataURL('image/png'));
             } catch (err) {
+              console.error('Error generating barcode:', err);
               resolve(null);
             }
           })
@@ -1079,8 +1058,7 @@ export default {
           
           this.sendQrScan(payload);
           
-          console.log('Scan Payload Sent to Database:', payload);
-          console.log('=== END SCAN DATA ===');
+          // ...existing code...
           this.playBeep();
         });
       }
@@ -1100,15 +1078,15 @@ export default {
       try {
         await api.post('/qr-scan', payload);
       } catch (err) {
-        console.error('QR scan upload failed:', err);
+        this.saveErrorLog('sendQrScan', err);
       }
     },
     async sendBarcodeScan(payload) {
       try {
         const response = await api.post('/barcode-scan', payload);
-        console.log('Barcode scan saved:', response.data);
+        console.log(response)
       } catch (err) {
-        console.error('Barcode scan upload failed:', err);
+        this.saveErrorLog('sendBarcodeScan', err);
       }
     },
     generateAllQRCodes() {

@@ -276,15 +276,6 @@
               class="form-field"
             ></v-text-field>
 
-            <v-text-field
-              v-model="userForm.data_set"
-              label="Data Set"
-              prepend-inner-icon="mdi-database"
-              outlined
-              dense
-              class="form-field"
-            ></v-text-field>
-
             <v-checkbox
               v-model="userForm.isAdmin"
               label="Administrator privileges"
@@ -385,7 +376,6 @@ export default {
       { text: 'User', value: 'username', align: 'start' },
       { text: 'Role', value: 'isAdmin', align: 'center' },
       { text: 'Station', value: 'station', align: 'center' },
-      { text: 'Data Set', value: 'data_set', align: 'center' },
       { text: 'Created At', value: 'created_at', align: 'center' },
       { text: 'Actions', value: 'actions', align: 'center', sortable: false }
     ],

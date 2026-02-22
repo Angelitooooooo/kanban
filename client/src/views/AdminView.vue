@@ -370,6 +370,20 @@ export default {
     }
   },
   methods: {
+        saveErrorLog(context, error) {
+          // Save error log to backend or local storage
+          // Example: send to backend API
+          try {
+            api.post('/error-log', {
+              context,
+              error: error?.message || String(error),
+              stack: error?.stack || null,
+              timestamp: new Date().toISOString()
+            });
+          } catch (logErr) {
+            console.error('Failed to save error log:', logErr);
+          }
+        },
     startAutoRefresh() {
       this.stopAutoRefresh();
       this.runAutoRefresh();
@@ -418,14 +432,13 @@ export default {
             }));
             allData.push(...batchData);
           } catch (err) {
-            console.error(`Failed to load data for batch ${batch.id}:`, err);
+            this.saveErrorLog('loadDataForBatch', err);
           }
         }
         
         this.records = allData;
-        console.log('All kanbans loaded:', allData);
       } catch (error) {
-        console.error('Failed to load kanbans:', error);
+        this.saveErrorLog('loadKanbans', error);
       } finally {
         this.loading = false;
       }
@@ -438,7 +451,7 @@ export default {
         const response = await api.get('/users');
         this.userStations = response.data.map(user => user.station);
       } catch (error) {
-        console.error('Failed to load user stations:', error);
+        this.saveErrorLog('loadUserStations', error);
         this.userStations = [];
       }
     },
@@ -472,7 +485,7 @@ export default {
         });
         this.$set(item, 'qrThumb', qrThumb);
       } catch (error) {
-        console.error('Failed to generate QR thumbnail:', error);
+        this.saveErrorLog('ensureQrThumb', error);
       }
     },
     async ensureQrCode(item) {
@@ -487,7 +500,7 @@ export default {
         });
         this.$set(item, 'qrCode', qrCode);
       } catch (error) {
-        console.error('Failed to generate QR code:', error);
+        this.saveErrorLog('ensureQrCode', error);
       }
     },
     async ensureBarcodeThumb(item) {
@@ -510,6 +523,7 @@ export default {
           resolve(canvas.toDataURL('image/png'));
         } catch (err) {
           resolve(null);
+          this.saveErrorLog('ensureBarcodeThumb', err);
         }
       });
       if (barcodeThumb) {
@@ -537,6 +551,7 @@ export default {
           resolve(canvas.toDataURL('image/png'));
         } catch (err) {
           resolve(null);
+          this.saveErrorLog('ensureBarcodeImg', err);
         }
       });
       if (barcodeImg) {

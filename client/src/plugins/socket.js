@@ -10,7 +10,7 @@ const socket = io(API_BASE_URL, {
 });
 
 socket.on('connect', () => {
-  console.log('Socket connected:', socket.id);
+//   console.log('Socket connected:', socket.id);
 });
 
 socket.on('disconnect', () => {
