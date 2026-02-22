@@ -4,9 +4,10 @@ import './registerServiceWorker'
 import router from './router'
 import store from './store'
 import vuetify from './plugins/vuetify'
-
+import socket from './plugins/socket'
 
 Vue.config.productionTip = false
+Vue.prototype.$socket = socket
 
 new Vue({
   router,

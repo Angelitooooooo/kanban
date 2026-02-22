@@ -49,6 +49,9 @@ export const printZebraLabels100Bulk = async (items = []) => {
             <div class="info-row shipping-row">
               <span class="info-label">Shipping Date:</span>
             </div>
+            <div class="info-row shipping-row">
+              <span class="info-label">Container No.:</span>
+            </div>
           </div>
           <div class="qr"><img src="${qrImg}" alt="QR"></div>
           <div class="footer">TBPC</div>

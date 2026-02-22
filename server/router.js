@@ -11,8 +11,9 @@ const {
   getAllKanbanSetData,
   createKanban,
   saveQRScan,
+  saveBarcodeScan,
   getAllKanbanPrints,
-  getKanbanPrintsStation1,
+  getKanbanPrintsuserID,
   createKanbanPrint,
   updateKanbanPrint
 } = require("./controllers/kanbanController");
@@ -54,10 +55,11 @@ router.get("/kanbans/:id/columns", getKanbanColumns);
 router.get("/kanban-set/all", getAllKanbanSetData);
 router.post("/kanbans", createKanban);
 router.post("/qr-scan", saveQRScan);
+router.post("/barcode-scan", saveBarcodeScan);
 
 // Kanban Print Routes
 router.get("/kanban-prints", getAllKanbanPrints);
-router.get("/kanban-prints/station/1", getKanbanPrintsStation1);
+router.get("/kanban-prints/user/:userId", getKanbanPrintsuserID);
 router.post("/kanban-prints", createKanbanPrint);
 router.put("/kanban-prints/:id", updateKanbanPrint);
 

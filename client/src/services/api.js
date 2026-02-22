@@ -1,4 +1,5 @@
 import axios from 'axios';
+import store from '../store';
 
 const API_BASE_URL = process.env.VUE_APP_API_BASE_URL || 'http://localhost:3000';
 
@@ -13,10 +14,14 @@ const instance = axios.create({
 // Kanban Print API endpoints
 export const getKanbanPrintsStation1 = async () => {
   try {
-    const response = await instance.get('/kanban-prints/station/1');
+    const userId = store.state.user?.userId;
+    if (!userId) {
+      throw new Error('User ID not found in store');
+    }
+    const response = await instance.get(`/kanban-prints/user/${userId}`);
     return response.data;
   } catch (error) {
-    console.error('Error fetching kanban prints for Station 1:', error);
+    console.error('Error fetching kanban prints for current user:', error);
     throw error;
   }
 };

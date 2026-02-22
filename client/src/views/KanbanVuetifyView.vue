@@ -29,7 +29,7 @@
                   :search-input.sync="batchSearch"
                   item-text="name"
                   item-value="id"
-                  label="Search Batch"
+                  label="Search Model"
                   clearable
                   dense
                   outlined
@@ -44,7 +44,7 @@
               <div class="kanban-hero-title">Station: {{ station }}</div>
               <div class="kanban-hero-meta">
                 <v-chip class="kanban-chip" label>Rows {{ rowRangeLabel }}</v-chip>
-                <v-btn
+                <!-- <v-btn
                   color="success"
                   class="kanban-chip kanban-chip-success"
                   small
@@ -52,8 +52,8 @@
                 >
                   <v-icon left size="18">mdi-plus</v-icon>
                   New Batch
-                </v-btn>
-                <v-btn
+                </v-btn> -->
+                <!-- <v-btn
                   color="primary"
                   class="kanban-chip"
                   :disabled="isGenerating"
@@ -62,7 +62,7 @@
                 >
                   <v-icon left size="18">mdi-print</v-icon>
                   Print
-                </v-btn>
+                </v-btn> -->
               </div>
             </div>
             <v-row no-gutters>
@@ -99,7 +99,7 @@
                                 </center>
                               </div>
                               <div style="text-align: center; width: 100%;">
-                                 <b>{{ column.items[rowIndex].qrData  }}</b> 
+                                <img v-if="column.items[rowIndex] && column.items[rowIndex].scannedBarcodeImg" :src="column.items[rowIndex].scannedBarcodeImg" alt="Scanned Barcode" style="width: 100%; max-width: 100px; height: auto; object-fit: contain;" />
                               </div>
                               <!-- <div class="bar-col-pro">
                                 <center>
@@ -146,36 +146,6 @@
           <!-- QR Scanner Video and Output UI -->
           <div class="d-flex flex-column align-center mt-8">
             <v-alert v-if="error" type="error" class="mt-4">{{ error }}</v-alert>
-            <v-dialog v-model="duplicateDialog" max-width="350">
-              <v-card>
-                <v-card-title class="headline">Duplicate QR Code</v-card-title>
-                <v-card-text>This QR code has already been scanned.</v-card-text>
-                <v-card-actions>
-                  <v-spacer></v-spacer>
-                  <v-btn color="primary" text @click="duplicateDialog = false">OK</v-btn>
-                </v-card-actions>
-              </v-card>
-            </v-dialog>
-            <v-dialog v-model="batchFullDialog" max-width="400">
-              <v-card>
-                <v-card-title class="headline">Batch Full</v-card-title>
-                <v-card-text>This batch is full ({{ totalRows }}/5). Cannot add more QR codes.</v-card-text>
-                <v-card-actions>
-                  <v-spacer></v-spacer>
-                  <v-btn color="primary" text @click="batchFullDialog = false">OK</v-btn>
-                </v-card-actions>
-              </v-card>
-            </v-dialog>
-            <v-dialog v-model="noSlotsDialog" max-width="400">
-              <v-card>
-                <v-card-title class="headline">No Empty Slots</v-card-title>
-                <v-card-text>No empty slots available.</v-card-text>
-                <v-card-actions>
-                  <v-spacer></v-spacer>
-                  <v-btn color="primary" text @click="noSlotsDialog = false">OK</v-btn>
-                </v-card-actions>
-              </v-card>
-            </v-dialog>
           </div>
         </v-card>
       </v-col>
@@ -186,9 +156,8 @@
 <script>
 import QRCode from 'qrcode'
 import JsBarcode from 'jsbarcode'
-import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
 import api from '../services/api'
-import { printZebraLabels100Bulk } from '../utils/print'
+import Swal from 'sweetalert2'
 
 export default {
   name: 'KanbanVuetifyView',
@@ -203,29 +172,23 @@ export default {
       scanInput: '',
       scannedList: [],
       error: '',
-      codeReader: null,
-      scanning: false,
-      duplicateDialog: false,
+      scannerBuffer: '',
+      scannerBufferTimer: null,
+      lastScanTime: 0,
+      scanCooldownMs: 500,
       batchList: [],
       selectedBatchId: null,
       isFetchingBatches: false,
-      batchFullDialog: false,
-      noSlotsDialog: false,
       batchSearch: '',
+      kanbanColumns: ['FSC LH', 'FSC RH', 'FSB LH', 'FSB RH', 'RSB RH', 'RSB LH', 'RR Cushion'],
       kanbanData: [
         {
           columns: [
             {
-              header: "FSC LH",
-              type: "highlight",
+              header: "FSB RH",
+              type: "empty",
               items: [
-              ]
-            },
-            {
-              header: "FSC RH",
-              type: "highlight",
-              items: [
-
+     
               ]
             },
             {
@@ -236,10 +199,16 @@ export default {
               ]
             },
             {
-              header: "FSB RH",
-              type: "empty",
+              header: "FSC RH",
+              type: "highlight",
               items: [
-     
+
+              ]
+            },
+            {
+              header: "FSC LH",
+              type: "highlight",
+              items: [
               ]
             },
             {
@@ -279,24 +248,7 @@ export default {
         } else if (!newVal) {
         this.delayedLoading = false;
         }
-    },
-    batchFullDialog(newVal) {
-      if (newVal) {
-        setTimeout(() => {
-          this.batchFullDialog = false;
-          this.startScan();
-        }, 1000);
-      }
-    },
-    noSlotsDialog(newVal) {
-      if (newVal) {
-        setTimeout(() => {
-          this.noSlotsDialog = false;
-          this.startScan();
-        }, 1000);
-      }
     }
-    
  },
   computed: {
     currentData() {
@@ -333,24 +285,42 @@ export default {
   mounted() {
     this.normalizeDataSet();
     this.fetchBatches();
-    this.codeReader = new BrowserMultiFormatReader();
-    this.startScan();
+    window.addEventListener('keydown', this.onGlobalScannerKeydown);
     this.generateAllQRCodes().then(() => {
       this.$nextTick(() => this.generateBarcodesForCurrentSet());
     });
-    console.log('KanbanVuetifyView mounted - initializing...');
+    
+    // Listen for socket events to refresh data
+    this.$socket.on('refresh-kanban-prints', (data) => {
+      console.log('Received refresh-kanban-prints event:', data);
+      const userStation = this.$store.state.user?.station;
+      if (userStation === data.station) {
+        console.log('Refreshing kanban data for station', data.station);
+        this.fetchBatches();
+      }
+    });
   },
   beforeDestroy() {
-    this.stopScan();
+    window.removeEventListener('keydown', this.onGlobalScannerKeydown);
+    this.clearScannerBufferTimer();
+    
+    // Remove socket listener
+    this.$socket.off('refresh-kanban-prints');
   },
   methods: {
         async fetchBatches() {
           try {
             this.isFetchingBatches = true;
-            const station = this.$store.state.user?.station;
-            const response = await api.get('/kanbans', {
-              params: { station }
-            });
+            const user = this.$store.state.user;
+            let response;
+            if (user && user.role === 'admin') {
+              response = await api.get('/kanbans');
+            } else {
+              const station = user?.station;
+              response = await api.get('/kanbans', {
+                params: { station }
+              });
+            }
             this.batchList = response.data;
             console.log('Batches fetched:', this.batchList);
             // Set the first batch as default if available (data loads on selection)
@@ -400,46 +370,90 @@ export default {
               if (column && item.row > 0 && item.row <= this.totalRows) {
                 const rowIndex = item.row - 1; // Convert to 0-based index
                 
-                // Generate QR and barcode for the loaded value
-                const [qrCode, barcodeImg] = await Promise.all([
-                  QRCode.toDataURL(String(item.value), {
-                    errorCorrectionLevel: 'H',
-                    type: 'image/png',
-                    quality: 0.92,
-                    margin: 1,
-                    width: 110
-                  }),
-                  new Promise((resolve) => {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = 160;
-                    canvas.height = 60;
-                    try {
-                      JsBarcode(canvas, String(item.value), {
-                        format: 'CODE128',
-                        displayValue: true,
-                        fontSize: 18,
-                        height: 48,
-                        width: 2,
-                        margin: 0,
-                        background: '#fff',
-                        lineColor: '#222',
-                      });
-                      resolve(canvas.toDataURL('image/png'));
-                    } catch (err) {
-                      resolve(null);
-                    }
-                  })
-                ]);
+                // Generate QR and barcode only when value exists
+                const promises = [];
+                if (item.value) {
+                  promises.push(
+                    QRCode.toDataURL(String(item.value), {
+                      errorCorrectionLevel: 'H',
+                      type: 'image/png',
+                      quality: 0.92,
+                      margin: 1,
+                      width: 110
+                    })
+                  );
+                  promises.push(
+                    new Promise((resolve) => {
+                      const canvas = document.createElement('canvas');
+                      canvas.width = 160;
+                      canvas.height = 60;
+                      try {
+                        JsBarcode(canvas, String(item.value), {
+                          format: 'CODE128',
+                          displayValue: true,
+                          fontSize: 18,
+                          height: 48,
+                          width: 2,
+                          margin: 0,
+                          background: '#fff',
+                          lineColor: '#222',
+                        });
+                        resolve(canvas.toDataURL('image/png'));
+                      } catch (err) {
+                        resolve(null);
+                      }
+                    })
+                  );
+                }
+
+                // Generate scanned barcode image if barcode exists
+                if (item.barcode) {
+                  promises.push(
+                    new Promise((resolve) => {
+                      const canvas = document.createElement('canvas');
+                      canvas.width = 160;
+                      canvas.height = 60;
+                      try {
+                        JsBarcode(canvas, String(item.barcode), {
+                          format: 'CODE128',
+                          displayValue: true,
+                          fontSize: 18,
+                          height: 48,
+                          width: 2,
+                          margin: 0,
+                          background: '#fff',
+                          lineColor: '#222',
+                        });
+                        resolve(canvas.toDataURL('image/png'));
+                      } catch (err) {
+                        resolve(null);
+                      }
+                    })
+                  );
+                }
+
+                const results = await Promise.all(promises);
+                let cursor = 0;
+                const qrCode = item.value ? results[cursor++] : null;
+                const barcodeImg = item.value ? results[cursor++] : null;
+                const scannedBarcodeImg = item.barcode ? (results[cursor++] || null) : null;
                 
                 this.$set(column.items, rowIndex, {
                   qrData: item.value,
                   qrCode: qrCode,
-                  barcodeImg: barcodeImg
+                  barcodeImg: barcodeImg,
+                  scannedBarcode: item.barcode || null,
+                  scannedBarcodeImg: scannedBarcodeImg
                 });
                 
                 // Add to scanned list to prevent duplicates
-                if (!this.scannedList.includes(item.value)) {
+                if (item.value && !this.scannedList.includes(item.value)) {
                   this.scannedList.push(item.value);
+                }
+                
+                // Add scanned barcode to scanned list if it exists
+                if (item.barcode && !this.scannedList.includes(item.barcode)) {
+                  this.scannedList.push(item.barcode);
                 }
               }
             }
@@ -455,9 +469,6 @@ export default {
           } finally {
             this.isGenerating = false;
           }
-        },
-        goToAdmin() {
-          this.$router.push('/admin');
         },
         async createNewBatch() {
           const batchName = prompt('Enter new batch name:');
@@ -507,46 +518,6 @@ export default {
           oscillator.start(audioContext.currentTime);
           oscillator.stop(audioContext.currentTime + 0.15);
         },
-        async printPage() {
-          try {
-            this.isGenerating = true;
-            if (!this.selectedBatchId) {
-              alert('Please select a batch to print');
-              return;
-            }
-
-            const selectedBatch = this.batchList.find(batch => batch.id === this.selectedBatchId);
-            if (!selectedBatch) {
-              alert('Selected batch not found');
-              return;
-            }
-
-            const dataResponse = await api.get(`/kanbans/${selectedBatch.id}/data`);
-            const batchItems = dataResponse.data || [];
-            const items = batchItems.map((item) => {
-              const createdDate = item.created_at ? new Date(item.created_at).toISOString().split('T')[0] : '';
-              return {
-                specification: item.value || '',
-                quantity: `40(1)`,
-                model: "036J",
-                manufacturingDate: createdDate,
-                qrData: item.value
-              };
-            });
-
-            if (items.length === 0) {
-              alert('No data found to print');
-              return;
-            }
-
-            await printZebraLabels100Bulk(items);
-          } catch (error) {
-            console.error('Failed to print labels:', error);
-            alert('Failed to print labels');
-          } finally {
-            this.isGenerating = false;
-          }
-        },
         normalizeDataSet() {
           const target = Math.max(0, Number(this.dataSet) || 0);
           this.kanbanData.forEach(set => {
@@ -568,186 +539,560 @@ export default {
             this.rowPage--;
           }
         },
+    onGlobalScannerKeydown(event) {
+      if (event.ctrlKey || event.altKey || event.metaKey) {
+        return;
+      }
+      if (event.key === 'Enter' || event.key === 'Tab') {
+        if (this.scannerBuffer.trim()) {
+          this.submitScannedValue(this.scannerBuffer);
+          event.preventDefault();
+        }
+        this.scannerBuffer = '';
+        this.clearScannerBufferTimer();
+        return;
+      }
+
+      if (event.key.length === 1) {
+        this.scannerBuffer += event.key;
+        this.restartScannerBufferTimer();
+      }
+    },
+    restartScannerBufferTimer() {
+      this.clearScannerBufferTimer();
+      this.scannerBufferTimer = setTimeout(() => {
+        this.scannerBuffer = '';
+      }, 120);
+    },
+    clearScannerBufferTimer() {
+      if (this.scannerBufferTimer) {
+        clearTimeout(this.scannerBufferTimer);
+        this.scannerBufferTimer = null;
+      }
+    },
+    async submitScannedValue(rawValue) {
+      const now = Date.now();
+      if (now - this.lastScanTime < this.scanCooldownMs) {
+        return;
+      }
+      this.lastScanTime = now;
+
+      const value = String(rawValue).trim();
+      if (!value) {
+        return;
+      }
+      const scanType = this.detectScanType(value);
+     
+
+      // If it's a Barcode, trim to 5 characters and log
+      if (scanType === 'Barcode') {
+        // Check for duplicate barcode scan
+        if (this.scannedList.includes(value)) {
+          console.log('DUPLICATE BARCODE: Value already scanned');
+          Swal.fire({
+            icon: 'warning',
+            title: 'Duplicate Barcode',
+            text: 'This barcode has already been scanned.',
+            timer: 2000,
+            timerProgressBar: true,
+            showConfirmButton: false
+          });
+          return;
+        }
+        
+        const trimmedBarcode = value.substring(1, 5);
+        const Position = value.charAt(value.length - 1);
+        if(Position == "R"){
+          console.log('Detected Barcode Scan (Right):', value);
+          const fsbRhColumn = this.currentData.columns.find(col => col.header === 'FSB RH');
+          if (fsbRhColumn) {
+            const matchedIndex = fsbRhColumn.items.findIndex(
+              item => item && item.qrData && item.qrData.slice(-4) === trimmedBarcode
+            );
+            console.log('Trimmed Barcode:', trimmedBarcode);
+            console.log('Match Found at Index:', matchedIndex);
+            
+            if (matchedIndex !== -1) {
+              // Generate barcode image for the scanned value
+              const canvas = document.createElement('canvas');
+              canvas.width = 160;
+              canvas.height = 60;
+              try {
+                JsBarcode(canvas, String(value), {
+                  format: 'CODE128',
+                  displayValue: true,
+                  fontSize: 18,
+                  height: 48,
+                  width: 2,
+                  margin: 0,
+                  background: '#fff',
+                  lineColor: '#222',
+                });
+                const scannedBarcodeImg = canvas.toDataURL('image/png');
+                
+                // Update the matched position with the scanned value and barcode image
+                this.$set(fsbRhColumn.items, matchedIndex, {
+                  ...fsbRhColumn.items[matchedIndex],
+                  scannedBarcode: value,
+                  scannedBarcodeImg: scannedBarcodeImg
+                });
+                console.log('Updated FSB RH at index', matchedIndex, 'with value:', value);
+                
+                // Save to database
+                this.sendBarcodeScan({
+                  barcodeValue: value,
+                  batchKey: this.selectedBatchId,
+                  station: this.$store.state.user?.station,
+                  trimmedBarcode: trimmedBarcode,
+                  position: Position
+                });
+                
+                // Add to scanned list to prevent duplicates
+                if (!this.scannedList.includes(value)) {
+                  this.scannedList.push(value);
+                }
+                
+                this.playBeep();
+              } catch (err) {
+                console.error('Failed to generate barcode:', err);
+              }
+            } else {
+              // No matching QR code found, place barcode at row based on last 4 characters
+              console.log('No matching QR code found for barcode:', trimmedBarcode);
+              
+              // Extract numeric value from trimmedBarcode to determine row index
+              const numericValue = parseInt(trimmedBarcode, 10);
+              const calculatedIndex = isNaN(numericValue) ? 0 : Math.min(numericValue - 1, this.totalRows - 1);
+              
+              console.log('Placing at calculated index:', calculatedIndex, '(Row', calculatedIndex + 1, ')');
+              
+              // Generate barcode image
+              const canvas = document.createElement('canvas');
+              canvas.width = 160;
+              canvas.height = 60;
+              try {
+                JsBarcode(canvas, String(value), {
+                  format: 'CODE128',
+                  displayValue: true,
+                  fontSize: 18,
+                  height: 48,
+                  width: 2,
+                  margin: 0,
+                  background: '#fff',
+                  lineColor: '#222',
+                });
+                const scannedBarcodeImg = canvas.toDataURL('image/png');
+                
+                // Update the position with barcode only (no QR data)
+                this.$set(fsbRhColumn.items, calculatedIndex, {
+                  ...fsbRhColumn.items[calculatedIndex],
+                  scannedBarcode: value,
+                  scannedBarcodeImg: scannedBarcodeImg
+                });
+                console.log('Placed barcode at FSB RH index', calculatedIndex, 'without QR match');
+                
+                // Save QR scan payload with null value to mark the row position
+                const qrPayload = {
+                  value: null,
+                  row: calculatedIndex + 1,
+                  column: 'FSB RH',
+                  batchKey: this.selectedBatchId,
+                  setIndex: this.currentSet,
+                  rowPage: Math.floor(calculatedIndex / this.rowsPerPage),
+                  station: this.$store.state.user?.station
+                };
+                this.sendQrScan(qrPayload);
+                
+                // Save to database
+                this.sendBarcodeScan({
+                  barcodeValue: value,
+                  batchKey: this.selectedBatchId,
+                  station: this.$store.state.user?.station,
+                  trimmedBarcode: trimmedBarcode,
+                  position: Position,
+                  row: calculatedIndex + 1,
+                  rowPage: Math.floor(calculatedIndex / this.rowsPerPage)
+                });
+                
+                // Add to scanned list to prevent duplicates
+                if (!this.scannedList.includes(value)) {
+                  this.scannedList.push(value);
+                }
+                
+                this.playBeep();
+              } catch (err) {
+                console.error('Failed to generate barcode:', err);
+              }
+            }
+          }
+        } else if(Position == "L"){
+          console.log('Detected Barcode Scan (Left):', value);
+          const fsbLhColumn = this.currentData.columns.find(col => col.header === 'FSB LH');
+          if (fsbLhColumn) {
+            const matchedIndex = fsbLhColumn.items.findIndex(
+              item => item && item.qrData && item.qrData.slice(-4) === trimmedBarcode
+            );
+            console.log('Trimmed Barcode:', trimmedBarcode);
+            console.log('Match Found at Index:', matchedIndex);
+            
+            if (matchedIndex !== -1) {
+              // Generate barcode image for the scanned value
+              const canvas = document.createElement('canvas');
+              canvas.width = 160;
+              canvas.height = 60;
+              try {
+                JsBarcode(canvas, String(value), {
+                  format: 'CODE128',
+                  displayValue: true,
+                  fontSize: 18,
+                  height: 48,
+                  width: 2,
+                  margin: 0,
+                  background: '#fff',
+                  lineColor: '#222',
+                });
+                const scannedBarcodeImg = canvas.toDataURL('image/png');
+                
+                // Update the matched position with the scanned value and barcode image
+                this.$set(fsbLhColumn.items, matchedIndex, {
+                  ...fsbLhColumn.items[matchedIndex],
+                  scannedBarcode: value,
+                  scannedBarcodeImg: scannedBarcodeImg
+                });
+                console.log('Updated FSB LH at index', matchedIndex, 'with value:', value);
+                
+                // Save to database
+                this.sendBarcodeScan({
+                  barcodeValue: value,
+                  batchKey: this.selectedBatchId,
+                  station: this.$store.state.user?.station,
+                  trimmedBarcode: trimmedBarcode,
+                  position: Position
+                });
+                
+                // Add to scanned list to prevent duplicates
+                if (!this.scannedList.includes(value)) {
+                  this.scannedList.push(value);
+                }
+                
+                this.playBeep();
+              } catch (err) {
+                console.error('Failed to generate barcode:', err);
+              }
+            } else {
+              // No matching QR code found, place barcode at row based on last 4 characters
+              console.log('No matching QR code found for barcode:', trimmedBarcode);
+              
+              // Extract numeric value from trimmedBarcode to determine row index
+              const numericValue = parseInt(trimmedBarcode, 10);
+              const calculatedIndex = isNaN(numericValue) ? 0 : Math.min(numericValue - 1, this.totalRows - 1);
+              
+              console.log('Placing at calculated index:', calculatedIndex, '(Row', calculatedIndex + 1, ')');
+              
+              // Generate barcode image
+              const canvas = document.createElement('canvas');
+              canvas.width = 160;
+              canvas.height = 60;
+              try {
+                JsBarcode(canvas, String(value), {
+                  format: 'CODE128',
+                  displayValue: true,
+                  fontSize: 18,
+                  height: 48,
+                  width: 2,
+                  margin: 0,
+                  background: '#fff',
+                  lineColor: '#222',
+                });
+                const scannedBarcodeImg = canvas.toDataURL('image/png');
+                
+                // Update the position with barcode only (no QR data)
+                this.$set(fsbLhColumn.items, calculatedIndex, {
+                  ...fsbLhColumn.items[calculatedIndex],
+                  scannedBarcode: value,
+                  scannedBarcodeImg: scannedBarcodeImg
+                });
+                console.log('Placed barcode at FSB LH index', calculatedIndex, 'without QR match');
+                
+                // Save QR scan payload with null value to mark the row position
+                const qrPayload = {
+                  value: null,
+                  row: calculatedIndex + 1,
+                  column: 'FSB LH',
+                  batchKey: this.selectedBatchId,
+                  setIndex: this.currentSet,
+                  rowPage: Math.floor(calculatedIndex / this.rowsPerPage),
+                  station: this.$store.state.user?.station
+                };
+                this.sendQrScan(qrPayload);
+                
+                // Save to database
+                this.sendBarcodeScan({
+                  barcodeValue: value,
+                  batchKey: this.selectedBatchId,
+                  station: this.$store.state.user?.station,
+                  trimmedBarcode: trimmedBarcode,
+                  position: Position,
+                  row: calculatedIndex + 1,
+                  rowPage: Math.floor(calculatedIndex / this.rowsPerPage)
+                });
+                
+                // Add to scanned list to prevent duplicates
+                if (!this.scannedList.includes(value)) {
+                  this.scannedList.push(value);
+                }
+                
+                this.playBeep();
+              } catch (err) {
+                console.error('Failed to generate barcode:', err);
+              }
+            }
+          }
+        } else {
+          Swal.fire({
+            icon: 'warning',
+            title: 'Barcode Position Unknown',
+            text: 'The scanned barcode does not indicate Left or Right position. Please check the barcode format.',
+            timer: 2500,
+            timerProgressBar: true,
+            showConfirmButton: false
+          });
+        }
+        console.log('Original Barcode:', value);
+        console.log('Trimmed Barcode (chars 1-4):', trimmedBarcode);
+        console.log('Last Character:', Position);
+        return;
+      }
+
+      // If it's Unknown, show error and return
+      if (scanType === 'Unknown') {
+        console.log('ERROR: Unknown scan type');
+        Swal.fire({
+          icon: 'error',
+          title: 'Invalid Scan',
+          text: 'Unable to identify the scanned code. Please scan a valid QR/Barcode.',
+          timer: 3000,
+          timerProgressBar: true,
+          showConfirmButton: false
+        });
+        console.log('=== END SCAN DATA ===');
+        return;
+      }
+
+      console.log('=== SCAN DATA ===');
+      console.log('Raw Scanned Value:', rawValue);
+      console.log('Trimmed Value:', value);
+      
+
+
+      // Check if scanned value matches selected batch name
+      if (this.selectedBatchId) {
+        const selectedBatch = this.batchList.find(b => b.id === this.selectedBatchId);
+        if (selectedBatch) {
+          const trimmedValue = value.startsWith('RR Cushion')
+            ? value.slice(11)
+            : value.slice(7);
+          
+          console.log('Trimmed for Batch Check:', trimmedValue);
+          console.log('Selected Batch Name:', selectedBatch.name);
+          
+          if (!trimmedValue.startsWith(selectedBatch.name)) {
+            console.log('ERROR: Scanned value does not match batch name');
+            Swal.fire({
+              icon: 'error',
+              title: 'Model Mismatch',
+              html: `QR code does not match selected Model "<strong>${selectedBatch.name}</strong>".<br><br>Scanned: "<strong>${trimmedValue}</strong>"`,
+              timer: 3000,
+              timerProgressBar: true,
+              showConfirmButton: false
+            });
+            return;
+          }
+        }
+      }
+
+      const getMatchKey = (text) => {
+        const parts = String(text || '').trim().split(/\s+/);
+        return parts.length ? parts[parts.length - 1] : '';
+      };
+
+      // Try to match with column headers - check if scanned value starts with column header
+      let column = null;
+      for (const col of this.currentData.columns) {
+        const normalizedHeader = col.header.replace(/\s+/g, '').toUpperCase();
+        const normalizedValue = value.replace(/\s+/g, '').toUpperCase();
+        
+        // Check if the scanned value starts with the column header
+        if (normalizedValue.startsWith(normalizedHeader) || normalizedHeader.startsWith(normalizedValue.substring(0, normalizedHeader.length))) {
+          column = col;
+          console.log('Matched Column:', col.header);
+          break;
+        }
+      }
+
+      if (!column) {
+        console.log('ERROR: No column matched');
+        this.error = `QR code '${value}' does not match any column header.`;
+        setTimeout(() => {
+          this.error = '';
+        }, 1500);
+        return;
+      }
+
+      const matchKey = getMatchKey(value);
+      console.log('Match Key:', matchKey);
+      if (!matchKey) {
+        console.log('ERROR: No valid match key');
+        this.error = `QR code '${value}' does not have a valid match key.`;
+        setTimeout(() => {
+          this.error = '';
+        }, 1500);
+        return;
+      }
+
+      let rowIndex = -1;
+      this.currentData.columns.forEach(col => {
+        col.items.forEach((item, idx) => {
+          if (item.qrData && getMatchKey(item.qrData) === matchKey) {
+            if (rowIndex === -1 || idx < rowIndex) rowIndex = idx;
+          }
+        });
+      });
+
+      if (rowIndex === -1) {
+        const maxLen = Math.max(...this.currentData.columns.map(col => col.items.length));
+        const pageStart = this.rowPage * this.rowsPerPage;
+        const pageEnd = Math.min(pageStart + this.rowsPerPage, maxLen);
+        let emptyRowIndex = -1;
+
+        for (let i = pageStart; i < pageEnd; i++) {
+          const isRowEmpty = this.currentData.columns.every(col => !col.items[i] || !col.items[i].qrData);
+          if (isRowEmpty) {
+            emptyRowIndex = i;
+            break;
+          }
+        }
+
+        if (emptyRowIndex === -1) {
+          for (let i = 0; i < maxLen; i++) {
+            const isRowEmpty = this.currentData.columns.every(col => !col.items[i] || !col.items[i].qrData);
+            if (isRowEmpty) {
+              emptyRowIndex = i;
+              break;
+            }
+          }
+        }
+
+        if (emptyRowIndex === -1) {
+          const allRowsFilled = this.currentData.columns.every(col => {
+            return col.items.length >= this.totalRows && 
+                   col.items.slice(0, this.totalRows).every(item => item && item.qrData);
+          });
+          
+          if (allRowsFilled) {
+            Swal.fire({
+              icon: 'warning',
+              title: 'Batch Full',
+              text: `This batch is full (${this.totalRows}/${this.totalRows}). Cannot add more QR codes.`,
+              timer: 2000,
+              timerProgressBar: true,
+              showConfirmButton: false
+            });
+          } else {
+            Swal.fire({
+              icon: 'warning',
+              title: 'No Empty Slots',
+              text: 'No empty slots available.',
+              timer: 2000,
+              timerProgressBar: true,
+              showConfirmButton: false
+            });
+          }
+          return;
+        }
+        rowIndex = emptyRowIndex;
+      }
+
+      this.rowPage = Math.floor(rowIndex / this.rowsPerPage);
+      console.log('Placing at Row Index:', rowIndex, '(Row', rowIndex + 1, ')');
+      console.log('Row Page:', this.rowPage);
+
+      if (!this.scannedList.includes(value)) {
+        this.scannedList.push(value);
+      } else {
+        console.log('DUPLICATE: Value already scanned');
+        Swal.fire({
+          icon: 'warning',
+          title: 'Duplicate QR Code',
+          text: 'This QR code has already been scanned.',
+          timer: 2000,
+          timerProgressBar: true,
+          showConfirmButton: false
+        });
+        return;
+      }
+
+      if (!column.items[rowIndex] || !column.items[rowIndex].qrData) {
+        Promise.all([
+          QRCode.toDataURL(String(value), {
+            errorCorrectionLevel: 'H',
+            type: 'image/png',
+            quality: 0.92,
+            margin: 1,
+            width: 110
+          }),
+          new Promise((resolve) => {
+            const canvas = document.createElement('canvas');
+            canvas.width = 160;
+            canvas.height = 60;
+            try {
+              JsBarcode(canvas, String(value), {
+                format: 'CODE128',
+                displayValue: true,
+                fontSize: 18,
+                height: 48,
+                width: 2,
+                margin: 0,
+                background: '#fff',
+                lineColor: '#222',
+              });
+              resolve(canvas.toDataURL('image/png'));
+            } catch (err) {
+              resolve(null);
+            }
+          })
+        ]).then(([qrCode, barcodeImg]) => {
+          const existingItem = column.items[rowIndex] || {};
+          this.$set(column.items, rowIndex, {
+            ...existingItem,
+            qrData: value,
+            qrCode,
+            barcodeImg
+          });
+
+          const payload = {
+            value,
+            row: rowIndex + 1,
+            column: column.header,
+            batchKey: this.selectedBatchId,
+            setIndex: this.currentSet,
+            rowPage: this.rowPage,
+            station: this.$store.state.user?.station
+          };
+          
+          this.sendQrScan(payload);
+          
+          console.log('Scan Payload Sent to Database:', payload);
+          console.log('=== END SCAN DATA ===');
+          this.playBeep();
+        });
+      }
+    },
     startScan() {
       this.error = '';
-      this.scanning = true;
-      if (!this.$refs.hiddenVideo) {
-        const video = document.createElement('video');
-        video.setAttribute('playsinline', '');
-        video.style.display = 'none';
-        video.setAttribute('ref', 'hiddenVideo');
-        this.$el.appendChild(video);
-        this.$refs.hiddenVideo = video;
-      }
-      const video = this.$refs.hiddenVideo;
-      this.codeReader.decodeFromVideoDevice(null, video, (result, err) => {
-        if (result) {
-          const value = result.getText();
-          const getMatchKey = (text) => {
-            const parts = String(text || '').trim().split(/\s+/);
-            return parts.length ? parts[parts.length - 1] : '';
-          };
-          // Use first 6 characters to match column header
-          const valuePrefix = value.substring(0, 6).trim();
-          // Find the column for this scan
-          const column = this.currentData.columns.find(col => col.header.replace(/\s+/g, '').toUpperCase() === valuePrefix.replace(/\s+/g, '').toUpperCase());
-          if (!column) {
-            this.error = `QR code '${value}' does not match any column header in this Kanban.`;
-            this.stopScan();
-            setTimeout(() => {
-              this.error = '';
-              this.startScan();
-            }, 1500);
-            return;
-          }
-          // Extract match key (last token, e.g., KBA2)
-          const matchKey = getMatchKey(value);
-          if (!matchKey) {
-            this.error = `QR code '${value}' does not have a valid match key.`;
-            this.stopScan();
-            setTimeout(() => {
-              this.error = '';
-              this.startScan();
-            }, 1500);
-            return;
-          }
-          // Find row index for this key across all columns
-          let rowIndex = -1;
-          this.currentData.columns.forEach(col => {
-            col.items.forEach((item, idx) => {
-              if (item.qrData && getMatchKey(item.qrData) === matchKey) {
-                if (rowIndex === -1 || idx < rowIndex) rowIndex = idx;
-              }
-            });
-          });
-          if (rowIndex === -1) {
-            // Not found: prefer the first fully empty row in the current page
-            const maxLen = Math.max(...this.currentData.columns.map(col => col.items.length));
-            const pageStart = this.rowPage * this.rowsPerPage;
-            const pageEnd = Math.min(pageStart + this.rowsPerPage, maxLen);
-            let emptyRowIndex = -1;
-            for (let i = pageStart; i < pageEnd; i++) {
-              const isRowEmpty = this.currentData.columns.every(col => !col.items[i] || !col.items[i].qrData);
-              if (isRowEmpty) {
-                emptyRowIndex = i;
-                break;
-              }
-            }
-            if (emptyRowIndex === -1) {
-              // Fallback to the first fully empty row across all pages
-              for (let i = 0; i < maxLen; i++) {
-                const isRowEmpty = this.currentData.columns.every(col => !col.items[i] || !col.items[i].qrData);
-                if (isRowEmpty) {
-                  emptyRowIndex = i;
-                  break;
-                }
-              }
-            }
-            if (emptyRowIndex === -1) {
-              // Check if batch is completely full
-              const allRowsFilled = this.currentData.columns.every(col => {
-                return col.items.length >= this.totalRows && 
-                       col.items.slice(0, this.totalRows).every(item => item && item.qrData);
-              });
-              
-              if (allRowsFilled) {
-                this.batchFullDialog = true;
-              } else {
-                this.noSlotsDialog = true;
-              }
-              this.stopScan();
-              setTimeout(() => {
-                this.error = '';
-                if (!this.batchFullDialog && !this.noSlotsDialog) {
-                  this.startScan();
-                }
-              }, 1500);
-              return;
-            }
-            rowIndex = emptyRowIndex;
-          }
-          // Auto-switch to the page that contains the resolved row index
-          this.rowPage = Math.floor(rowIndex / this.rowsPerPage);
-          // Prevent duplicate in scannedList
-          if (!this.scannedList.includes(value)) {
-            this.scannedList.push(value);
-          } else {
-            this.duplicateDialog = true;
-            this.stopScan();
-            setTimeout(() => {
-              this.duplicateDialog = false;
-              this.startScan();
-            }, 1000);
-            return;
-          }
-          // Replace empty object in column.items at rowIndex with scanned item
-          if (!column.items[rowIndex] || !column.items[rowIndex].qrData) {
-            Promise.all([
-              QRCode.toDataURL(String(value), {
-                errorCorrectionLevel: 'H',
-                type: 'image/png',
-                quality: 0.92,
-                margin: 1,
-                width: 110
-              }),
-              new Promise((resolve) => {
-                const canvas = document.createElement('canvas');
-                canvas.width = 160;
-                canvas.height = 60;
-                try {
-                  JsBarcode(canvas, String(value), {
-                    format: 'CODE128',
-                    displayValue: true,
-                    fontSize: 18,
-                    height: 48,
-                    width: 2,
-                    margin: 0,
-                    background: '#fff',
-                    lineColor: '#222',
-                  });
-                  resolve(canvas.toDataURL('image/png'));
-                } catch (err) {
-                  resolve(null);
-                }
-              })
-            ]).then(([qrCode, barcodeImg]) => {
-              // Use splice to guarantee the scanned item is at the correct row in this column
-              this.$set(column.items, rowIndex, { qrData: value, qrCode, barcodeImg });
-              
-              // Save to store for admin panel
-              this.$store.dispatch('addScanRecord', {
-                row: rowIndex + 1,
-                column: column.header,
-                qrData: value,
-                qrCode: qrCode,
-                barcodeImg: barcodeImg
-              });
-
-              this.sendQrScan({
-                value,
-                row: rowIndex + 1,
-                column: column.header,
-                batchKey: this.selectedBatchId,
-                setIndex: this.currentSet,
-                rowPage: this.rowPage,
-                station: this.$store.state.user?.station
-              });
-              
-              this.playBeep();
-            });
-          }
-        }
-        if (err && !(err instanceof NotFoundException)) {
-          this.error = err.message || String(err);
-        }
-      });
-      console.log('Started scanning...' , this.kanbanData);
     },
     stopScan() {
-      if (this.codeReader) {
-        this.codeReader.reset();
-      }
-      this.scanning = false;
+      this.clearScannerBufferTimer();
     },
     resetScan() {
       this.scannedList = [];
@@ -759,6 +1104,14 @@ export default {
         await api.post('/qr-scan', payload);
       } catch (err) {
         console.error('QR scan upload failed:', err);
+      }
+    },
+    async sendBarcodeScan(payload) {
+      try {
+        const response = await api.post('/barcode-scan', payload);
+        console.log('Barcode scan saved:', response.data);
+      } catch (err) {
+        console.error('Barcode scan upload failed:', err);
       }
     },
     generateAllQRCodes() {
@@ -829,6 +1182,39 @@ export default {
         this.isGenerating = false;
         this.$forceUpdate();
       });
+    },
+    detectScanType(value) {
+      const upperValue = value.toUpperCase();
+      const isKanbanMatch = this.kanbanColumns.some((item) => {
+        const upperItem = String(item).toUpperCase();
+        return upperValue.startsWith(upperItem) || upperValue.includes(upperItem);
+      });
+
+      if (upperValue.startsWith('QR:')) {
+        return 'QR';
+      }
+
+      if (isKanbanMatch) {
+        return 'QR';
+      }
+
+      if (upperValue.startsWith('BAR:') || upperValue.startsWith('BC:')) {
+        return 'Barcode';
+      }
+
+      if (/^(HTTPS?:\/\/|WIFI:|BEGIN:VCARD|MAILTO:|SMSTO:|TEL:|GEO:)/i.test(value)) {
+        return 'QR';
+      }
+
+      if (/^\d{8}$|^\d{12,14}$/.test(value)) {
+        return 'Barcode';
+      }
+
+      if (/^[A-Z0-9\-.$/+% ]{4,48}$/i.test(value)) {
+        return 'Barcode';
+      }
+
+      return 'Unknown';
     }
   }
 }
@@ -847,10 +1233,10 @@ export default {
 .kanban-bg-pro::after{content:"";position:absolute;inset:auto auto -25% -10%;width:520px;height:520px;background:radial-gradient(circle at center,rgba(249,115,22,0.18),rgba(249,115,22,0));filter:blur(8px);pointer-events:none;}
 .kanban-card-pro{border-radius:22px;box-shadow:0 18px 48px rgba(31,41,55,0.12);background:linear-gradient(180deg,#ffffff 0%,#fbfdff 100%);border:1px solid rgba(31,41,55,0.06);}
 .kanban-hero{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:12px 20px;margin-bottom:16px;background:linear-gradient(135deg,rgba(25,118,210,0.08),rgba(255,107,107,0.04));border:1px solid rgba(25,118,210,0.15);border-radius:16px;box-shadow:0 4px 20px rgba(25,118,210,0.1);}
-.kanban-hero-text{display:flex;flex-direction:row;align-items:center;gap:16px;}
-.kanban-hero-title{font-family:'Space Grotesk','Segoe UI',Tahoma,sans-serif;font-weight:800;font-size:28px;color:var(--header-pro);letter-spacing:0.6px;white-space:nowrap;background:linear-gradient(135deg,#1976d2,#1565c0);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.kanban-hero-text{display:flex;flex-direction:row;align-items:center;gap:16px;flex:1;}
+.kanban-hero-title{font-family:'Space Grotesk','Segoe UI',Tahoma,sans-serif;font-weight:800;font-size:28px;color:var(--header-pro);letter-spacing:0.6px;white-space:nowrap;background:linear-gradient(135deg,#1976d2,#1565c0);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-align:center;}
 .kanban-hero-subtitle{font-family:'DM Sans','Segoe UI',Tahoma,sans-serif;font-weight:500;font-size:14px;color:#5b6b82;}
-.kanban-hero-meta{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.kanban-hero-meta{display:flex;align-items:center;gap:14px;flex-wrap:wrap;flex:1;justify-content:flex-end;}
 .kanban-chip{font-weight:700;letter-spacing:0.4px;border-radius:8px;background:linear-gradient(135deg,#1976d2,#1565c0) !important;color:#fff !important;padding:6px 14px !important;transition:all 0.3s ease;display:inline-flex !important;min-height:32px !important;box-shadow:0 4px 12px rgba(25,118,210,0.2);}
 .kanban-chip >>> .v-chip__content{color:#fff !important;font-weight:700;}
 .kanban-chip >>> .v-btn__content{color:#fff !important;font-weight:700;}
@@ -913,7 +1299,7 @@ export default {
  slot-pro.highlight{border-color:var(--primary-pro);background:var(--highlight-pro);box-shadow:0 4px 16px rgba(25,118,210,0.2);}
  slot-pro.slot-hover{box-shadow:0 8px 28px rgba(25,118,210,0.25);border-color:#1565c0;z-index:2;transform:translateY(-2px);}
  slot-inner-pro{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0px}
- qr-col-pro{
+ .qr-col-pro{
   width: 100%;
   display: flex;
   align-items: center;
@@ -921,7 +1307,7 @@ export default {
   padding: 2px;
   overflow: hidden;
 }
- bar-col-pro{
+ .bar-col-pro{
   width: 100%;
   display: flex;
   align-items: center;
@@ -932,17 +1318,15 @@ export default {
   border: none;
   overflow: hidden;
 }
- qr-code-pro{
-  width: 100%;
-  height: 100%;
-  max-width: 38px;
-  max-height: 33px;
+ .qr-code-pro{
+  width: 40px;
+  height: 40px;
+  max-width: 40px;
+  max-height: 40px;
   object-fit: contain;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  box-shadow: 0 1px 4px rgba(44,62,80,0.04);
-  margin-left: auto;
-  margin-right: auto;
+  border: none;
+  border-radius: 2px;
+  box-shadow: none;
   display: block;
 }
  barcode-img-pro {
@@ -962,7 +1346,7 @@ export default {
 .mt-6{margin-top:10px;}
  .qr-barcode-elevated {
    background: #fff !important;
-   height: 220px;
+   height: 120px;
    min-width: 100%;
    border: none !important;
    border-radius: 22px;
@@ -1029,8 +1413,8 @@ export default {
 }
 .kanban-grid-row-number {
   width: 48px;
-  height: 220px !important;
-  min-height: 220px !important;
+  height: 120px !important;
+  min-height: 120px !important;
   background: linear-gradient(180deg, #1976d2 0%, #1565c0 100%);
   color: #fff;
   border: none;
@@ -1038,7 +1422,7 @@ export default {
   align-items: center;
   justify-content: center;
   font-weight: 900;
-  font-size: 1.35rem;
+  font-size: 1.05rem;
   margin-bottom: 0;
   border-radius: 0;
   box-shadow: 0 4px 12px rgba(25,118,210,0.25);
@@ -1086,8 +1470,8 @@ export default {
   box-shadow: 0 6px 20px rgba(25,118,210,0.35);
 }
 .kanban-grid-row-number-first {
-  height: 220px !important;
-  min-height: 220px !important;
+  height: 120px !important;
+  min-height: 120px !important;
   border-radius: 0;
   display: flex;
   align-items: center;
@@ -1106,9 +1490,9 @@ export default {
   border-right: 1.5px solid #e2e8f0;
   border-bottom: 1.5px solid #e2e8f0;
   min-width: 0;
-  height: 220px;
-  min-height: 220px;
-  max-height: 220px;
+  height: 120px;
+  min-height: 120px;
+  max-height: 120px;
   background: transparent !important;
   box-shadow: none !important;
   border-radius: 0 !important;

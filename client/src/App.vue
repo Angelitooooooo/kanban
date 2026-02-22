@@ -75,6 +75,12 @@
             </v-list-item-icon>
             <v-list-item-title class="nav-title">Station One</v-list-item-title>
           </v-list-item>
+          <v-list-item v-if="isAdmin" @click="goToKanbans" link class="nav-item" :class="{ 'nav-item-active': isKanbansRoute }" ripple>
+            <v-list-item-icon class="nav-item-icon">
+              <v-icon>mdi-format-list-checks</v-icon>
+            </v-list-item-icon>
+            <v-list-item-title class="nav-title">Station Two</v-list-item-title>
+          </v-list-item>
           <v-list-item v-if="isAdmin" @click="goToAdmin" link class="nav-item" :class="{ 'nav-item-active': isAdminRoute }" ripple>
             <v-list-item-icon class="nav-item-icon">
               <v-icon>mdi-view-dashboard</v-icon>
@@ -87,12 +93,7 @@
             </v-list-item-icon>
             <v-list-item-title class="nav-title">User Management</v-list-item-title>
           </v-list-item>
-          <v-list-item v-if="isAdmin" @click="goToKanbans" link class="nav-item" :class="{ 'nav-item-active': isKanbansRoute }" ripple>
-            <v-list-item-icon class="nav-item-icon">
-              <v-icon>mdi-format-list-checks</v-icon>
-            </v-list-item-icon>
-            <v-list-item-title class="nav-title">Kanbans</v-list-item-title>
-          </v-list-item>
+
         </v-list>
       </div>
 
@@ -297,7 +298,7 @@ export default {
       this.drawer = false;
     },
     goToKanbans() {
-      this.$router.push('/kanbans');
+      this.$router.push('/kanban');
       this.drawer = false;
     },
     openAccountSettings() {

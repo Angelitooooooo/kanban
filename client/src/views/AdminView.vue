@@ -16,8 +16,8 @@
 
       <!-- Stats Cards -->
       <v-card-text class="pt-2 pb-2">
-        <v-row class="mb-2" justify="space-around" align="center">
-          <v-col cols="12" sm="6" md="2">
+        <v-row class="mb-2 stat-row" align="center">
+          <v-col cols="12" sm="6" md="2" class="stat-col">
             <v-card class="stat-card" color="#8B5CF6" dark>
               <v-card-text class="pa-2">
                 <div class="stat-label">Total Scans</div>
@@ -25,31 +25,7 @@
               </v-card-text>
             </v-card>
           </v-col>
-          <v-col cols="12" sm="6" md="2">
-            <v-card class="stat-card" color="#06B6D4" dark>
-              <v-card-text class="pa-2">
-                <div class="stat-label">FSC LH</div>
-                <div class="stat-value">{{ getColumnCount('FSC LH') }}</div>
-              </v-card-text>
-            </v-card>
-          </v-col>
-          <v-col cols="12" sm="6" md="2">
-            <v-card class="stat-card" color="#10B981" dark>
-              <v-card-text class="pa-2">
-                <div class="stat-label">FSC RH</div>
-                <div class="stat-value">{{ getColumnCount('FSC RH') }}</div>
-              </v-card-text>
-            </v-card>
-          </v-col>
-          <v-col cols="12" sm="6" md="2">
-            <v-card class="stat-card" color="#FB923C" dark>
-              <v-card-text class="pa-2">
-                <div class="stat-label">FSB LH</div>
-                <div class="stat-value">{{ getColumnCount('FSB LH') }}</div>
-              </v-card-text>
-            </v-card>
-          </v-col>
-          <v-col cols="12" sm="6" md="2">
+          <v-col cols="12" sm="6" md="2" class="stat-col">
             <v-card class="stat-card" color="#F43F5E" dark>
               <v-card-text class="pa-2">
                 <div class="stat-label">FSB RH</div>
@@ -57,11 +33,59 @@
               </v-card-text>
             </v-card>
           </v-col>
+          <v-col cols="12" sm="6" md="2" class="stat-col">
+            <v-card class="stat-card" color="#FB923C" dark>
+              <v-card-text class="pa-2">
+                <div class="stat-label">FSB LH</div>
+                <div class="stat-value">{{ getColumnCount('FSB LH') }}</div>
+              </v-card-text>
+            </v-card>
+          </v-col>
+          <v-col cols="12" sm="6" md="2" class="stat-col">
+            <v-card class="stat-card" color="#10B981" dark>
+              <v-card-text class="pa-2">
+                <div class="stat-label">FSC RH</div>
+                <div class="stat-value">{{ getColumnCount('FSC RH') }}</div>
+              </v-card-text>
+            </v-card>
+          </v-col>
+          <v-col cols="12" sm="6" md="2" class="stat-col">
+            <v-card class="stat-card" color="#06B6D4" dark>
+              <v-card-text class="pa-2">
+                <div class="stat-label">FSC LH</div>
+                <div class="stat-value">{{ getColumnCount('FSC LH') }}</div>
+              </v-card-text>
+            </v-card>
+          </v-col>
+          <v-col cols="12" sm="6" md="2" class="stat-col">
+            <v-card class="stat-card" color="#22C55E" dark>
+              <v-card-text class="pa-2">
+                <div class="stat-label">RSB RH</div>
+                <div class="stat-value">{{ getColumnCount('RSB RH') }}</div>
+              </v-card-text>
+            </v-card>
+          </v-col>
+          <v-col cols="12" sm="6" md="2" class="stat-col">
+            <v-card class="stat-card" color="#0EA5E9" dark>
+              <v-card-text class="pa-2">
+                <div class="stat-label">RSB LH</div>
+                <div class="stat-value">{{ getColumnCount('RSB LH') }}</div>
+              </v-card-text>
+            </v-card>
+          </v-col>
+          <v-col cols="12" sm="6" md="2" class="stat-col">
+            <v-card class="stat-card" color="#F59E0B" dark>
+              <v-card-text class="pa-2">
+                <div class="stat-label">RR Cushion</div>
+                <div class="stat-value">{{ getColumnCount('RR Cushion') }}</div>
+              </v-card-text>
+            </v-card>
+          </v-col>
         </v-row>
 
         <!-- Search and Filter -->
-        <v-row class="mb-2">
-          <v-col cols="12" md="3">
+        <v-row class="mb-2 filter-row" align="center">
+          <v-col cols="12" md="3" class="filter-col">
             <v-text-field
               v-model="search"
               prepend-inner-icon="mdi-magnify"
@@ -71,17 +95,7 @@
               clearable
             ></v-text-field>
           </v-col>
-          <v-col cols="12" md="2">
-            <v-select
-              v-model="filterStation"
-              :items="stationOptions"
-              label="Filter by Station"
-              outlined
-              dense
-              clearable
-            ></v-select>
-          </v-col>
-          <v-col cols="12" md="2">
+          <v-col cols="12" md="2" class="filter-col">
             <v-autocomplete
               v-model="filterBatch"
               :items="batchOptions"
@@ -93,7 +107,7 @@
               searchable
             ></v-autocomplete>
           </v-col>
-          <v-col cols="12" md="2">
+          <v-col cols="12" md="2" class="filter-col">
             <v-select
               v-model="filterColumn"
               :items="columnOptions"
@@ -103,7 +117,7 @@
               clearable
             ></v-select>
           </v-col>
-          <v-col cols="12" md="2">
+          <v-col cols="12" md="2" class="filter-col">
             <v-menu
               ref="dateMenu"
               :close-on-content-click="false"
@@ -232,6 +246,7 @@
 import QRCode from 'qrcode'
 import JsBarcode from 'jsbarcode'
 import api from '../services/api'
+import Swal from 'sweetalert2'
 
 export default {
   name: 'AdminView',
@@ -254,16 +269,16 @@ export default {
       records: [],
       headers: [
         { text: 'Batch Key', value: 'batchKey', sortable: true },
-        { text: 'Station', value: 'station', sortable: true },
-        { text: 'Row', value: 'row', sortable: true },
-        { text: 'Column', value: 'column', sortable: true },
+        // { text: 'Station', value: 'station', sortable: true },
+        // { text: 'Row', value: 'row', sortable: true },
+        // { text: 'Column', value: 'column', sortable: true },
         { text: 'Data', value: 'qrData', sortable: true },
         { text: 'QR Code', value: 'qrCode', sortable: false, align: 'center' },
         { text: 'Barcode', value: 'barcode', sortable: false, align: 'center' },
         { text: 'Timestamp', value: 'timestamp', sortable: true },
         { text: 'Actions', value: 'actions', sortable: false, align: 'center' }
       ],
-      columnOptions: ['FSC LH', 'FSC RH', 'FSB LH', 'FSB RH']
+      columnOptions: ['FSB RH', 'FSB LH', 'FSC RH', 'FSC LH', 'RSB RH', 'RSB LH', 'RR Cushion']
     }
   },
   mounted() {
@@ -476,8 +491,8 @@ export default {
       }
     },
     async ensureBarcodeThumb(item) {
-      if (!item || item.barcodeThumb || !item.qrData) return;
-      const value = String(item.qrData);
+      if (!item || item.barcodeThumb || !item.barcode) return;
+      const value = String(item.barcode);
       const barcodeThumb = await new Promise((resolve) => {
         const canvas = document.createElement('canvas');
         canvas.width = 120;
@@ -502,8 +517,8 @@ export default {
       }
     },
     async ensureBarcodeImg(item) {
-      if (!item || item.barcodeImg || !item.qrData) return;
-      const value = String(item.qrData);
+      if (!item || item.barcodeImg || !item.barcode) return;
+      const value = String(item.barcode);
       const barcodeImg = await new Promise((resolve) => {
         const canvas = document.createElement('canvas');
         canvas.width = 220;
@@ -546,8 +561,15 @@ export default {
       }
     },
     exportToCSV() {
-      if (this.records.length === 0) {
-        alert('No records to export');
+      const filtered = this.filteredRecords;
+      if (filtered.length === 0) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'No records to export',
+          text: 'There are no records matching your filter.',
+          timer: 2000,
+          showConfirmButton: false
+        });
         return;
       }
 
@@ -555,12 +577,12 @@ export default {
       const headers = ['Row', 'Column', 'QR Data', 'Timestamp'];
       csvRows.push(headers.join(','));
 
-      this.records.forEach(record => {
+      filtered.forEach(record => {
         const row = [
-          record.row,
-          record.column,
-          `"${record.qrData}"`,
-          this.formatDate(record.timestamp)
+          record.row == null ? '' : record.row,
+          record.column == null ? '' : record.column,
+          record.qrData == null ? '""' : `"${record.qrData}"`,
+          record.timestamp == null ? '' : this.formatDate(record.timestamp)
         ];
         csvRows.push(row.join(','));
       });
@@ -631,6 +653,35 @@ export default {
   font-size: 24px;
   font-weight: 900;
   color: white;
+}
+
+.stat-row {
+  flex-wrap: wrap;
+}
+
+.filter-row {
+  flex-wrap: wrap;
+}
+
+@media (min-width: 960px) {
+  .filter-row {
+    flex-wrap: nowrap;
+  }
+  .filter-row > .filter-col {
+    flex: 1 1 0 !important;
+    max-width: none !important;
+  }
+}
+
+@media (min-width: 960px) {
+  .stat-row {
+    flex-wrap: nowrap;
+  }
+
+  .stat-row > .stat-col {
+    flex: 1 1 0 !important;
+    max-width: none !important;
+  }
 }
 
 .records-table {

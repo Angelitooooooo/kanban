@@ -2,27 +2,42 @@ exports.seed = async function(knex) {
   // Deletes ALL existing entries
   await knex('kanban_print').del();
 
-  // Inserts seed entries
+  // Inserts seed entries - Complete set for KBB1
   await knex('kanban_print').insert([
     {
-      kanban: 'FSB LH KBJ2',
+      kanban: 'FSB RH KBB1',
       printCopies: 25,
-      user_id: 11
+      user_id: 2
     },
     {
-      kanban: 'RR Cushion KGH6',
-      printCopies: 15,
-      user_id: 11
+      kanban: 'FSB LH KBB1',
+      printCopies: 25,
+      user_id: 2
     },
     {
-      kanban: 'FSB LH KBJ2',
-      printCopies: 30,
-      user_id: 12
+      kanban: 'FSC RH KBB1',
+      printCopies: 25,
+      user_id: 2
     },
     {
-      kanban: 'RR Cushion KGH6',
-      printCopies: 20,
-      user_id: 12
-    }
+      kanban: 'FSC LH KBB1',
+      printCopies: 25,
+      user_id: 2
+    },
+    {
+      kanban: 'RSB RH KBB1',
+      printCopies: 25,
+      user_id: 2
+    },
+    {
+      kanban: 'RSB LH KBB1',
+      printCopies: 25,
+      user_id: 2
+    },
+    {
+      kanban: 'RR Cushion KBB1',
+      printCopies: 25,
+      user_id: 2
+    },
   ]);
 };

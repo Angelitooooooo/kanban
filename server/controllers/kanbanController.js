@@ -4,13 +4,12 @@ const { db } = require("../db");
 const getAllKanbans = async (req, res) => {
   try {
     const { station } = req.query;
-    
+    // Check for admin user
+    const isAdmin = req.user && (req.user.isAdmin || req.user.role === 'admin');
     let query = db('kanbans');
-    
-    if (station) {
+    if (station && !isAdmin) {
       query = query.where('station', station);
     }
-    
     const kanbans = await query.select('*').orderBy('id', 'desc');
     res.status(200).json(kanbans);
   } catch (error) {
@@ -256,9 +255,9 @@ const saveQRScan = async (req, res) => {
   try {
     const { value, row, column, batchKey, rowPage, station } = req.body;
 
-    // Validate required fields
-    if (!value || !row || !column) {
-      return res.status(400).json({ error: "Missing required fields: value, row, column" });
+    // Validate required fields (value can be null for row markers)
+    if (!row || !column) {
+      return res.status(400).json({ error: "Missing required fields: row, column" });
     }
 
     // Determine batchID: if batchKey is a number, use it directly; otherwise look up by name
@@ -274,31 +273,86 @@ const saveQRScan = async (req, res) => {
       }
     }
 
-    // Insert into kanban_set table
-    const [insertId] = await db('kanban_set').insert({
-      columnName: column,
-      row: row,
-      batchID: batchID || null,
-      rowPage: rowPage || 1,
-      value: value,
-      station: station
-    });
+    // Update existing row if present (preserve barcode), otherwise insert
+    let existingQuery = db('kanban_set')
+      .where('columnName', column)
+      .where('row', row)
+      .where('batchID', batchID || null);
 
-    console.log("QR scan saved to database:", {
-      id: insertId,
-      columnName: column,
-      row,
-      batchID,
-      rowPage,
-      value,
-      station
-    });
+    if (station) {
+      existingQuery = existingQuery.where('station', station);
+    }
 
-    res.status(201).json({ 
-      status: "success", 
-      id: insertId,
-      message: "QR scan data saved successfully" 
-    });
+    const existingRow = await existingQuery.first();
+
+    const hasValue = value !== null && value !== undefined && value !== '';
+
+    if (existingRow) {
+      // Only update if value is not null, otherwise skip update
+      if (hasValue) {
+        await db('kanban_set')
+          .where('id', existingRow.id)
+          .update({
+            value: value,
+            rowPage: (rowPage !== undefined && rowPage !== null) ? rowPage : (existingRow.rowPage !== undefined && existingRow.rowPage !== null ? existingRow.rowPage : 1),
+            station: station || existingRow.station,
+            updated_at: new Date()
+          });
+        console.log("QR scan updated existing row:", {
+          id: existingRow.id,
+          columnName: column,
+          row,
+          batchID,
+          rowPage: (rowPage !== undefined && rowPage !== null) ? rowPage : (existingRow.rowPage !== undefined && existingRow.rowPage !== null ? existingRow.rowPage : 1),
+          value: value,
+          station: station || existingRow.station
+        });
+        return res.status(200).json({
+          status: "updated",
+          id: existingRow.id,
+          message: "QR scan data updated successfully"
+        });
+      } else {
+        // If value is null and row exists, do not insert or update
+        return res.status(200).json({
+          status: "skipped",
+          id: existingRow.id,
+          message: "QR scan with null value skipped (row already exists)"
+        });
+      }
+    }
+
+    // Only insert if value is not null
+    if (hasValue) {
+      const [insertId] = await db('kanban_set').insert({
+        columnName: column,
+        row: row,
+        batchID: batchID || null,
+        rowPage: (rowPage !== undefined && rowPage !== null) ? rowPage : 1,
+        value: value,
+        station: station || 2
+      });
+      console.log("QR scan saved to database:", {
+        id: insertId,
+        columnName: column,
+        row,
+        batchID,
+        rowPage: (rowPage !== undefined && rowPage !== null) ? rowPage : 1,
+        value,
+        station
+      });
+      return res.status(201).json({ 
+        status: "success", 
+        id: insertId,
+        message: "QR scan data saved successfully" 
+      });
+    } else {
+      // If value is null and no row exists, do not insert
+      return res.status(200).json({
+        status: "skipped",
+        message: "QR scan with null value skipped (no row to insert)"
+      });
+    }
   } catch (error) {
     console.error("Error saving QR scan:", error);
     res.status(500).json({ error: "Failed to save QR scan data", details: error.message });
@@ -325,18 +379,24 @@ const getAllKanbanPrints = async (req, res) => {
   }
 };
 
-// Get kanban print records for Station 1 (user_id: 11)
-const getKanbanPrintsStation1 = async (req, res) => {
+// Get kanban print records for a specific user
+const getKanbanPrintsuserID = async (req, res) => {
   try {
+    const { userId } = req.params;
+    
+    if (!userId) {
+      return res.status(400).json({ error: "User ID is required" });
+    }
+    
     const kanbanPrints = await db('kanban_print')
-      .where('user_id', 11)
+      .where('user_id', userId)
       .select('*')
       .orderBy('id', 'desc');
     
     res.status(200).json(kanbanPrints);
   } catch (error) {
-    console.error("Error fetching kanban prints for Station 1:", error);
-    res.status(500).json({ error: "Failed to fetch kanban prints for Station 1", details: error.message });
+    console.error("Error fetching kanban prints for station:", error);
+    res.status(500).json({ error: "Failed to fetch kanban prints for station", details: error.message });
   }
 };
 
@@ -356,6 +416,38 @@ const createKanbanPrint = async (req, res) => {
     };
     
     const result = await db('kanban_print').insert(newKanbanPrint);
+    
+    // Trim the kanban value based on specification prefix
+    let trimmedKanban = kanban.startsWith('RR Cushion')
+      ? kanban.slice(11)
+      : kanban.slice(7);
+    
+    // Remove the last number from trimmedKanban
+    trimmedKanban = trimmedKanban.slice(0, -1);
+    
+    // Check if trimmed kanban exists in kanban table
+    const existingRecord = await db('kanbans')
+      .where('name', trimmedKanban)
+      .first();
+    
+    // If not existing, insert into kanban table
+    if (!existingRecord) {
+      await db('kanbans').insert({
+        name: trimmedKanban,
+        data_set: '40',
+        created_at: new Date(),
+        station : "2"
+      });
+    }
+    
+    // Emit socket event to refresh data for station 2 users
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('refresh-kanban-prints', {
+        station: "2",
+        message: "New kanban print created"
+      });
+    }
     
     res.status(201).json({ 
       id: result[0],
@@ -397,6 +489,109 @@ const updateKanbanPrint = async (req, res) => {
   }
 };
 
+// Save barcode scan data
+const saveBarcodeScan = async (req, res) => {
+  try {
+    const { barcodeValue, batchKey, station, trimmedBarcode, position, row, rowPage } = req.body;
+
+    // Validate required fields
+    if (!barcodeValue || !trimmedBarcode || !position) {
+      return res.status(400).json({ error: "Missing required fields: barcodeValue, trimmedBarcode, position" });
+    }
+
+    // Determine column based on position
+    const columnName = position === 'R' ? 'FSB RH' : position === 'L' ? 'FSB LH' : null;
+    
+    if (!columnName) {
+      return res.status(400).json({ error: "Invalid position. Must be 'R' or 'L'" });
+    }
+
+    // Determine batchID: if batchKey is a number, use it directly; otherwise look up by name
+    let batchID = batchKey;
+    
+    if (batchKey && isNaN(batchKey)) {
+      // Look up kanban by name
+      const kanban = await db('kanbans').where('name', batchKey).first();
+      if (kanban) {
+        batchID = kanban.id;
+      } else {
+        return res.status(404).json({ error: `Kanban batch '${batchKey}' not found` });
+      }
+    }
+
+    // Look for existing QR code record where last 4 characters of value match trimmedBarcode
+    const existingRecords = await db('kanban_set')
+      .where('batchID', batchID)
+      .where('columnName', columnName)
+      .select('*');
+    
+    // Find matching record by comparing last 4 characters
+    let matchedRecord = null;
+    for (const record of existingRecords) {
+      if (record.value && record.value.slice(-4) === trimmedBarcode) {
+        matchedRecord = record;
+        break;
+      }
+    }
+
+    if (matchedRecord) {
+      // Update existing record with barcode value
+      await db('kanban_set')
+        .where('id', matchedRecord.id)
+        .update({ 
+          barcode: barcodeValue,
+          updated_at: new Date()
+        });
+
+      console.log("Barcode updated for existing QR code:", {
+        id: matchedRecord.id,
+        columnName,
+        row: matchedRecord.row,
+        qrValue: matchedRecord.value,
+        barcodeValue,
+        batchID
+      });
+
+      res.status(200).json({ 
+        status: "updated",
+        id: matchedRecord.id,
+        message: "Barcode updated for existing QR code",
+        matchedRow: matchedRecord.row
+      });
+    } else {
+      // Create new record with barcode value but blank QR value
+      const [insertId] = await db('kanban_set').insert({
+        columnName: columnName,
+        row: row || null,
+        batchID: batchID || null,
+        rowPage: rowPage || null,
+        value: null, // Leave QR value blank
+        barcode: barcodeValue,
+        station: station || 2
+      });
+
+      console.log("New barcode record created (no matching QR):", {
+        id: insertId,
+        columnName,
+        row,
+        rowPage,
+        barcodeValue,
+        batchID,
+        station
+      });
+
+      res.status(201).json({ 
+        status: "created",
+        id: insertId,
+        message: "New barcode record created without matching QR code"
+      });
+    }
+  } catch (error) {
+    console.error("Error saving barcode scan:", error);
+    res.status(500).json({ error: "Failed to save barcode scan data", details: error.message });
+  }
+};
+
 module.exports = {
   getAllKanbans,
   getKanbanStatistics,
@@ -408,8 +603,9 @@ module.exports = {
   getAllKanbanSetData,
   createKanban,
   saveQRScan,
+  saveBarcodeScan,
   getAllKanbanPrints,
-  getKanbanPrintsStation1,
+  getKanbanPrintsuserID,
   createKanbanPrint,
   updateKanbanPrint
 };

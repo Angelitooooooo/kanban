@@ -244,6 +244,7 @@
 <script>
 import QRCode from 'qrcode';
 import { getKanbanPrintsStation1, getAllKanbanPrints, saveKanbanPrint, updateKanbanPrint, saveErrorLog } from '../services/api';
+import { printZebraLabels100Bulk } from '../utils/print';
 
 export default {
 	name: 'StationOneView',
@@ -509,6 +510,7 @@ export default {
 			this.singlePrintInput = '';
 			this.printInputError = '';
 			this.showPrintDialog = true;
+            console.log(item)
 		},
 		closePrintDialog() {
 			this.showPrintDialog = false;
@@ -528,7 +530,7 @@ export default {
 
 			this.printInputError = '';
 		},
-		onDialogPrintClick() {
+		async onDialogPrintClick() {
 			const inputValue = String(this.singlePrintInput || '').trim();
 
 			if (!inputValue) {
@@ -550,6 +552,39 @@ export default {
 					this.selectedPrintItem.printCopies = copyCount;
 					// Update the database with new printCopies value
 					this.updatePrintCopiesInDatabase(this.selectedPrintItem.id, copyCount);
+				}
+
+				// Remove last digit and add incrementing numbers
+				const baseValue = String(this.selectedPrintItem.value || '').slice(0, -1);
+			const items = Array(copyCount).fill(null).map((_, index) => {
+				const spec = `${baseValue}${String(index + 1).padStart(4, '0')}`;
+				return {
+					specification: spec,
+					quantity: `${copyCount}(${index + 1})`,
+					model: '036J',
+					manufacturingDate: new Date().toISOString().split('T')[0],
+					qrData: spec
+				};
+			});
+				// Call print function
+				await printZebraLabels100Bulk(items);
+			} else {
+				// Single print mode - print just the selected item
+				if (this.selectedPrintItem) {
+					const baseValue = String(this.selectedPrintItem.value || '').slice(0, -1);
+					const match = String(this.singlePrintInput || '').match(/\((\d+)\)/);
+					const numberFromParenthesis = match ? match[1] : '1';
+					const paddedNumber = String(numberFromParenthesis).padStart(4, '0');
+				const spec = `${baseValue}${paddedNumber}`;
+				const items = [{
+					specification: spec,
+					quantity: this.singlePrintInput || '40(1)',
+					model: '036J',
+					manufacturingDate: new Date().toISOString().split('T')[0],
+					qrData: spec
+					}];
+					// Call print function
+					await printZebraLabels100Bulk(items);
 				}
 			}
 
