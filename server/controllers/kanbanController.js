@@ -442,11 +442,16 @@ const createKanbanPrint = async (req, res) => {
     
     // Emit socket event to refresh data for station 2 users
     const io = req.app.get('io');
+    const socket = req.app.get('socket'); // Assume sender's socket is attached to req.app
     if (io) {
-      io.emit('refresh-kanban-prints', {
-        station: "2",
+      const payload = {
         message: "New kanban print created"
-      });
+      };
+      if (socket) {
+        socket.broadcast.emit('refresh-kanban-prints', payload);
+      } else {
+        io.emit('refresh-kanban-prints', payload);
+      }
     }
     
     res.status(201).json({ 

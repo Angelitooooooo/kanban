@@ -293,11 +293,8 @@ export default {
     // Listen for socket events to refresh data
     this.$socket.on('refresh-kanban-prints', (data) => {
       console.log('Received refresh-kanban-prints event:', data);
-      const userStation = this.$store.state.user?.station;
-      if (userStation === data.station) {
-        console.log('Refreshing kanban data for station', data.station);
-        this.fetchBatches();
-      }
+      console.log('Refreshing kanban data for all users');
+      this.fetchBatches();
     });
   },
   beforeDestroy() {
