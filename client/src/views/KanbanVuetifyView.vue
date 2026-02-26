@@ -53,7 +53,7 @@
                   <v-icon left size="18">mdi-plus</v-icon>
                   New Batch
                 </v-btn> -->
-                <!-- <v-btn
+              <v-btn
                   color="primary"
                   class="kanban-chip"
                   :disabled="isGenerating"
@@ -62,7 +62,7 @@
                 >
                   <v-icon left size="18">mdi-print</v-icon>
                   Print
-                </v-btn> -->
+                </v-btn> 
               </div>
             </div>
             <v-row no-gutters>
@@ -302,20 +302,53 @@ export default {
     this.$socket.off('refresh-kanban-prints');
   },
   methods: {
-            saveErrorLog(context, error) {
-              // Save error log to backend or local storage
-              // Example: send to backend API
-              try {
-                api.post('/error-log', {
-                  context,
-                  error: error?.message || String(error),
-                  stack: error?.stack || null,
-                  timestamp: new Date().toISOString()
-                });
-              } catch (logErr) {
-                console.error('Failed to save error log:', logErr);
+      async printPage() {
+          // Gather all items from all columns in the current set
+          const allItems = [];
+          this.currentData.columns.forEach(column => {
+            column.items.forEach(item => {
+              if (item && item.qrData) {
+                let obj = {
+                  specification: item.qrData,
+                  qrData: item.qrData,
+                  qrCode: item.qrCode,
+                  quantity: `40(${Number(item.qrData?.slice(-4))})`,
+                  model: '036J',
+                  manufacturingDate: new Date().toISOString().split('T')[0],
+                };
+                allItems.push(obj);
               }
-            },
+            });
+          });
+          // Dynamically import and call printZebraLabels100Bulk
+          const { printZebraLabels100Bulk } = await import('../utils/print');
+          if(allItems.length === 0) {
+            Swal.fire({
+              icon: 'info',
+              title: 'No QR Codes',
+              text: 'There are no QR codes to print on the current page.',
+              timer: 2000,
+              timerProgressBar: true,
+              showConfirmButton: false
+            });
+            return;
+          }
+          await printZebraLabels100Bulk(allItems);
+        },
+        saveErrorLog(context, error) {
+          // Save error log to backend or local storage
+          // Example: send to backend API
+          try {
+            api.post('/error-log', {
+              context,
+              error: error?.message || String(error),
+              stack: error?.stack || null,
+              timestamp: new Date().toISOString()
+            });
+          } catch (logErr) {
+            console.error('Failed to save error log:', logErr);
+          }
+        },
         async fetchBatches() {
           try {
             this.isFetchingBatches = true;
