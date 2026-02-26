@@ -6,6 +6,7 @@ exports.up = function (knex) {
     table.boolean("isAdmin").notNullable().defaultTo(false);
     table.string("data_set", 255).defaultTo("40");
     table.string("station", 255);
+    table.string("model", 255);
     table.timestamps(true, true);
   });
 };

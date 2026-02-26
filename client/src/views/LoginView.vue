@@ -101,7 +101,8 @@ export default {
           isAdmin: data.user.isAdmin,
           data_set: data.user.data_set,
           station: data.user.station,
-          remember: this.form.remember
+          remember: this.form.remember,
+          model : data.user.model
         })
 
         // Reload page to let router guard handle redirect cleanly

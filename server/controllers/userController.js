@@ -25,7 +25,7 @@ const login = async (req, res) => {
 
     const users = await db('users')
       .where('username', username)
-      .select('id', 'username', 'password', 'isAdmin', 'data_set', 'station');
+      .select('id', 'username', 'password', 'isAdmin', 'data_set', 'station', 'model');
 
     if (users.length === 0) {
       return res.status(401).json({ error: "Invalid username or password" });
@@ -45,7 +45,8 @@ const login = async (req, res) => {
         username: user.username,
         isAdmin: user.isAdmin,
         data_set: user.data_set,
-        station: user.station
+        station: user.station,
+        model : user.model
       }
     });
   } catch (error) {

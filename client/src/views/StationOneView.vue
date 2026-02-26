@@ -564,7 +564,7 @@ export default {
 						value : this.selectedPrintItem.value,
 						specification: spec,
 						quantity: `${copyCount}(${index + 1})`,
-						model: '036J',
+						model: this.$store.state.user.model,
 						manufacturingDate: new Date().toISOString().split('T')[0],
 						qrData: spec
 					};
@@ -586,8 +586,8 @@ export default {
 				const items = [{
 					value : this.selectedPrintItem.value,
 					specification: spec,
-					quantity: this.singlePrintInput || '40(1)',
-					model: '036J',
+					quantity: this.singlePrintInput || `${this.$store.state.user.data_set}(1)`,
+					model: this.$store.state.user.model,
 					manufacturingDate: new Date().toISOString().split('T')[0],
 					qrData: spec
 					}];

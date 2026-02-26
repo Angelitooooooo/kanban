@@ -303,25 +303,25 @@ export default {
   },
   methods: {
       async printPage() {
+          const { printZebraRawZPL } = await import('../utils/print');
           // Gather all items from all columns in the current set
           const allItems = [];
           this.currentData.columns.forEach(column => {
-            column.items.forEach(item => {
+            column.items.forEach(async (item) => {
               if (item && item.qrData) {
                 let obj = {
-                  specification: item.qrData,
-                  qrData: item.qrData,
+                  specification: item.qrData.startsWith('RR Cushion') ? item.qrData.slice(11) : item.qrData.slice(7),
+                  qrData: `(${this.$store.state.user.model})(${item.qrData.startsWith('RR Cushion') ? item.qrData.slice(11) : item.qrData.slice(7)})()(${this.$store.state.user.data_set})()()()()`,
                   qrCode: item.qrCode,
-                  quantity: `40(${Number(item.qrData?.slice(-4))})`,
-                  model: '036J',
+                  quantity: `${this.$store.state.user.data_set}(${Number(item.qrData?.slice(-4))})`,
+                  model: this.$store.state.user.model,
                   manufacturingDate: new Date().toISOString().split('T')[0],
                 };
-                allItems.push(obj);
+                await printZebraRawZPL(obj);
               }
             });
           });
           // Dynamically import and call printZebraLabels100Bulk
-          const { printZebraLabels100Bulk } = await import('../utils/print');
           if(allItems.length === 0) {
             Swal.fire({
               icon: 'info',
@@ -333,7 +333,6 @@ export default {
             });
             return;
           }
-          await printZebraLabels100Bulk(allItems);
         },
         saveErrorLog(context, error) {
           // Save error log to backend or local storage

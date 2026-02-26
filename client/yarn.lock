@@ -7991,3 +7991,13 @@ yorkie@^2.0.0:
     is-ci "^1.0.10"
     normalize-path "^1.0.0"
     strip-indent "^2.0.0"
+
+zebra-browser-print-wrapper-global@^0.1.3:
+  version "0.1.3"
+  resolved "https://registry.npmjs.org/zebra-browser-print-wrapper-global/-/zebra-browser-print-wrapper-global-0.1.3.tgz"
+  integrity sha512-J5BXHEtS8IguCIG+l2ZBoY5UquyMnDsf/yFs49zPYC7OjwdAi1+d+VqdDGHvw31El14RhZPJgvRWn4ki5g/91w==
+
+zpl-renderer-js@^3.1.0:
+  version "3.1.0"
+  resolved "https://registry.npmjs.org/zpl-renderer-js/-/zpl-renderer-js-3.1.0.tgz"
+  integrity sha512-IQ9MaXBCd7DKXL5WLwWWUN2riAtW06F7E7hBdijiScRZ4W1L2gctA89eYrBDXkkENSwOPooQi3qlDdcVSfBr/A==
