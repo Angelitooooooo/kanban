@@ -5,7 +5,7 @@ exports.seed = async function(knex) {
   // Inserts seed entries
   await knex('kanbans').insert([
     {
-      name: 'KBB',
+      name: 'KBB1',
       data_set: '40',
       station: '2'
     },

@@ -422,9 +422,6 @@ const createKanbanPrint = async (req, res) => {
       ? kanban.slice(11)
       : kanban.slice(7);
     
-    // Remove the last number from trimmedKanban
-    trimmedKanban = trimmedKanban.slice(0, -1);
-    
     // Check if trimmed kanban exists in kanban table
     const existingRecord = await db('kanbans')
       .where('name', trimmedKanban)

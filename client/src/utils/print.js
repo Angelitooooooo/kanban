@@ -40,14 +40,12 @@ export const printZebraRawZPL = (data) => {
 ^XZ`
 
   const zebra = new ZebraBrowserPrintWrapper();
-  console.log('Generated ZPL:', zebra , zpl);
   zebra.getDefaultPrinter().then(printer => {
     if (!printer) {
       alert('No Zebra printer found');
       return;
     }
     zebra.setPrinter(printer);
-    console.log('Sending raw ZPL to printer:', printer);
     zebra.print(zpl).then(() => {
     }).catch(e => {
       alert('Zebra printing failed: ' + e);

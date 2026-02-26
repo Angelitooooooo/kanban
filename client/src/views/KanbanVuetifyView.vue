@@ -98,6 +98,11 @@
                                   <img v-if="column.items[rowIndex] && column.items[rowIndex].qrCode" :src="column.items[rowIndex].qrCode" alt="QR Code" class="qr-code-pro" />
                                 </center>
                               </div>
+                               <div style="text-align: center; width: 100%;">
+                                <p v-if="column.items[rowIndex] && column.items[rowIndex].qrData" style="width: 100%; max-width: 100px; height: auto; object-fit: contain;">
+                                {{ column.items[rowIndex].qrData.startsWith('RR Cushion') ? column.items[rowIndex].qrData.slice(11) : column.items[rowIndex].qrData.slice(7) }}
+                                </p>
+                               </div>
                               <div style="text-align: center; width: 100%;">
                                 <img v-if="column.items[rowIndex] && column.items[rowIndex].scannedBarcodeImg" :src="column.items[rowIndex].scannedBarcodeImg" alt="Scanned Barcode" style="width: 100%; max-width: 100px; height: auto; object-fit: contain;" />
                               </div>
@@ -306,18 +311,19 @@ export default {
           const { printZebraRawZPL } = await import('../utils/print');
           // Gather all items from all columns in the current set
           const allItems = [];
+          const selectedBatch = this.batchList.find(b => b.id === this.selectedBatchId);
           this.currentData.columns.forEach(column => {
             column.items.forEach(async (item) => {
               if (item && item.qrData) {
                 let obj = {
-                  specification: item.qrData.startsWith('RR Cushion') ? item.qrData.slice(11) : item.qrData.slice(7),
-                  qrData: `(${this.$store.state.user.model})(${item.qrData.startsWith('RR Cushion') ? item.qrData.slice(11) : item.qrData.slice(7)})()(${this.$store.state.user.data_set})()()()()`,
-                  qrCode: item.qrCode,
+                  // specification: item.qrData.startsWith('RR Cushion') ? item.qrData.slice(11) : item.qrData.slice(7),
+                  specification: selectedBatch.name,
+                  qrData: `(${this.$store.state.user.model})(${selectedBatch.name})()(${this.$store.state.user.data_set})()()()()`,
                   quantity: `${this.$store.state.user.data_set}(${Number(item.qrData?.slice(-4))})`,
                   model: this.$store.state.user.model,
                   manufacturingDate: new Date().toISOString().split('T')[0],
                 };
-                await printZebraRawZPL(obj);
+                allItems.push(obj);
               }
             });
           });
@@ -333,6 +339,7 @@ export default {
             });
             return;
           }
+           await printZebraRawZPL(allItems[0]);
         },
         saveErrorLog(context, error) {
           // Save error log to backend or local storage
@@ -901,10 +908,9 @@ export default {
           const trimmedValue = value.startsWith('RR Cushion')
             ? value.slice(11)
             : value.slice(7);
-          
-          // ...existing code...
-          
-          if (!trimmedValue.startsWith(selectedBatch.name)) {
+
+            let batchValue = selectedBatch.name.slice(0,selectedBatch.name.length -1)
+          if (!trimmedValue.startsWith(batchValue)) {
             // ...existing code...
             Swal.fire({
               icon: 'error',
