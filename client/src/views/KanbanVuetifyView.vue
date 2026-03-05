@@ -1234,8 +1234,6 @@ export default {
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;700&family=Space+Grotesk:wght@600;700&display=swap');
-
 :global(html, body) {
   overflow: hidden;
 }

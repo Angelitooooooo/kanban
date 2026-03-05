@@ -554,8 +554,6 @@ export default {
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=DM+Sans:wght@400;500;600&display=swap');
-
 .user-view {
   padding: 24px;
   background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);

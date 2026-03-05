@@ -8,6 +8,10 @@
     "lint": "vue-cli-service lint"
   },
   "dependencies": {
+    "@fontsource/dm-sans": "^5.2.8",
+    "@fontsource/roboto": "^5.2.10",
+    "@fontsource/space-grotesk": "^5.2.10",
+    "@mdi/font": "^7.4.47",
     "@zxing/library": "^0.21.3",
     "axios": "^1.6.7",
     "core-js": "^3.8.3",
