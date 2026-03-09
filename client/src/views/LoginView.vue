@@ -92,7 +92,6 @@ export default {
         })
 
         const { data } = response
-        console.log('Login successful:', data)
 
         // Store user info in Vuex
         this.$store.dispatch('login', {

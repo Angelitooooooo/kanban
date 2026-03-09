@@ -31,7 +31,7 @@ export const printStationOneLabels = async (items) => {
 		// Extract fields for label
 		const labelNumber = item.specification ? String(item.specification).slice(-4) : ''
 		const leftBold = "TBPC";
-		const rightText =  item.specification ? String(item.specification).slice(0, 6) : ''
+		const rightText =  item.specification.startsWith('RR Cushion') ? "RSC" : String(item.specification).slice(0, 6)
 		let mainText = '';
 		if (item.value) {
 			if (item.value.startsWith('RR Cushion')) {

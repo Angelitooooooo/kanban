@@ -308,10 +308,17 @@ export default {
   },
   methods: {
       async printPage() {
-          const { printZebraRawZPL } = await import('../utils/print');
+          const { print } = await import('../utils/StationTwoPrint');
           // Gather all items from all columns in the current set
           const allItems = [];
           const selectedBatch = this.batchList.find(b => b.id === this.selectedBatchId);
+          const createdAtTimestamps = this.currentData.columns
+            .flatMap(column => column.items || [])
+            .map(item => new Date(item?.created_at).getTime())
+            .filter(timestamp => !Number.isNaN(timestamp));
+          const latestManufacturingDate = createdAtTimestamps.length
+            ? new Date(Math.max(...createdAtTimestamps)).toISOString().split('T')[0]
+            : new Date().toISOString().split('T')[0];
           this.currentData.columns.forEach(column => {
             column.items.forEach(async (item) => {
               if (item && item.qrData) {
@@ -321,7 +328,7 @@ export default {
                   qrData: `(${this.$store.state.user.model})(${selectedBatch.name})()(${this.$store.state.user.data_set})()()()()`,
                   quantity: `${this.$store.state.user.data_set}(${Number(item.qrData?.slice(-4))})`,
                   model: this.$store.state.user.model,
-                  manufacturingDate: new Date().toISOString().split('T')[0],
+                  manufacturingDate: latestManufacturingDate,
                 };
                 allItems.push(obj);
               }
@@ -339,7 +346,7 @@ export default {
             });
             return;
           }
-           await printZebraRawZPL(allItems[0]);
+           await print(allItems[0]);
         },
         saveErrorLog(context, error) {
           // Save error log to backend or local storage
@@ -489,7 +496,8 @@ export default {
                   qrCode: qrCode,
                   barcodeImg: barcodeImg,
                   scannedBarcode: item.barcode || null,
-                  scannedBarcodeImg: scannedBarcodeImg
+                  scannedBarcodeImg: scannedBarcodeImg,
+                  created_at: item.created_at || null
                 });
                 
                 // Add to scanned list to prevent duplicates

@@ -512,7 +512,6 @@ export default {
 			this.singlePrintInput = '';
 			this.printInputError = '';
 			this.showPrintDialog = true;
-            console.log(item)
 		},
 		closePrintDialog() {
 			this.showPrintDialog = false;
@@ -573,7 +572,6 @@ export default {
 				if (items.length > 1) {
 					items[items.length - 1].quantity = `${copyCount}(${copyCount})`;
 				}
-				console.log(items)
 				await printStationOneLabels(items);
 			} else {
 				// Single print mode - print just the selected item
