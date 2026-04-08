@@ -11,11 +11,11 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "winser": {
-  "id": "kanban-service",
-  "name": "Kanban Service",
-  "description": "Kanban service for task management",
-  "script": "index.js"
-},
+    "id": "kanban-service",
+    "name": "Kanban Service",
+    "description": "Kanban service for task management",
+    "script": "index.js"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",

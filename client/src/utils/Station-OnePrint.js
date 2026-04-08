@@ -13,6 +13,7 @@ export const printStationOneLabels = async (items) => {
 	// 75mm x 40mm at 96dpi ≈ 284px x 151px
 	const labelWindow = window.open('', '_blank', 'width=1500,height=1500');
 	if (!labelWindow) return;
+	console.log('Opened label print window',items);
 
 	const labelBlocks = [];
 	for (const item of items) {
@@ -31,11 +32,12 @@ export const printStationOneLabels = async (items) => {
 		// Extract fields for label
 		const labelNumber = item.specification ? String(item.specification).slice(-4) : ''
 		const leftBold = "TBPC";
-		const rightText =  item.specification.startsWith('RR Cushion') ? "RSC" : String(item.specification).slice(0, 6)
+		const rightText =  item.value.startsWith('RR Cushion') ? "RSC" : String(item.value).slice(0, 6)
+		console.log(rightText)
 		let mainText = '';
 		if (item.value) {
 			if (item.value.startsWith('RR Cushion')) {
-				mainText = item.value.slice(11);
+				mainText = `${item.value.slice(11)} C`;
 			} else {
 				mainText =`${item.value.slice(7)} C`;
 			}

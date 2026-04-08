@@ -85,7 +85,7 @@
             <v-list-item-icon class="nav-item-icon">
               <v-icon>mdi-view-dashboard</v-icon>
             </v-list-item-icon>
-            <v-list-item-title class="nav-title">Admin Panel</v-list-item-title>
+            <v-list-item-title class="nav-title">Quality Assurance</v-list-item-title>
           </v-list-item>
           <v-list-item v-if="isAdmin" @click="goToUsers" link class="nav-item" :class="{ 'nav-item-active': isUsersRoute }" ripple>
             <v-list-item-icon class="nav-item-icon">
@@ -259,7 +259,7 @@ export default {
       return this.$route.name === 'KanbanVuetifyView' || this.$route.path === '/kanban';
     },
     isAdminRoute() {
-      return this.$route.name === 'AdminView' || this.$route.path === '/admin';
+      return this.$route.name === 'QualityAssuranceView' || this.$route.path === '/quality-admin';
     },
     isStationOneRoute() {
       return this.$route.name === 'station-one' || this.$route.path === '/station-one';
@@ -269,6 +269,9 @@ export default {
     },
     isKanbansRoute() {
       return this.$route.name === 'kanbans' || this.$route.path === '/kanbans';
+    },
+    isStationTwoRoute() {
+      return this.$route.name === 'stationtwo' || this.$route.path === '/station-two';
     },
     isPasswordFormValid() {
       const { newPassword, confirmPassword } = this.passwordForm;
@@ -281,24 +284,28 @@ export default {
   },
 
   methods: {
-    goToKanban() {
-      this.$router.push('/kanban');
-      this.drawer = false;
-    },
     goToStationOne() {
-      this.$router.push('/station-one');
+      if (this.$route.path !== '/station-one') {
+        this.$router.push('/station-one');
+      }
       this.drawer = false;
     },
     goToAdmin() {
-      this.$router.push('/admin');
+      if (this.$route.path !== '/quality-admin') {
+        this.$router.push('/quality-admin');
+      }
       this.drawer = false;
     },
     goToUsers() {
-      this.$router.push('/users');
+      if (this.$route.path !== '/users') {
+        this.$router.push('/users');
+      }
       this.drawer = false;
     },
     goToKanbans() {
-      this.$router.push('/kanban');
+      if (this.$route.path !== '/station-two') {
+        this.$router.push('/station-two');
+      }
       this.drawer = false;
     },
     openAccountSettings() {

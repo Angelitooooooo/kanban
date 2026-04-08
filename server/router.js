@@ -17,6 +17,7 @@ const {
   createKanbanPrint,
   updateKanbanPrint
 } = require("./controllers/kanbanController");
+const { getKanbanQAByDate, createKanbanQA, updateKanbanQAById, updateBarcodeById, updateKanbanQAAllFieldsById, deleteKanbanQAById } = require("./controllers/kanbanQa");
 const {
   saveErrorLog,
   getAllErrorLogs,
@@ -24,6 +25,7 @@ const {
   deleteErrorLog,
   clearAllErrorLogs
 } = require("./controllers/errorLogController");
+const { getAllKanbanQA, getKanbanQAByDateAndKanban , updateKanbanQAValidatedQR,updateKanbanQAValidatedBarcode } = require('./controllers/StationTwoController');
 
 const router = express.Router();
 
@@ -56,6 +58,16 @@ router.get("/kanban-set/all", getAllKanbanSetData);
 router.post("/kanbans", createKanban);
 router.post("/qr-scan", saveQRScan);
 router.post("/barcode-scan", saveBarcodeScan);
+router.get("/kanbanqa", getKanbanQAByDate);
+router.post("/kanbanqa", createKanbanQA);
+
+// Update all fields of Kanban_qa by id
+router.put("/kanbanqa/:id", updateKanbanQAAllFieldsById);
+router.put("/kanbanqa/:id/qr", updateKanbanQAById);
+router.put("/kanbanqa/:id/barcode", updateBarcodeById);
+
+// Delete KanbanQA by id
+router.delete("/kanbanqa/:id", deleteKanbanQAById);
 
 // Kanban Print Routes
 router.get("/kanban-prints", getAllKanbanPrints);
@@ -70,4 +82,9 @@ router.get("/error-logs/route/:route", getErrorLogsByRoute);
 router.delete("/error-logs/:id", deleteErrorLog);
 router.delete("/error-logs", clearAllErrorLogs);
 
+// Station Two API
+router.get('/stationtwo/kanbanqa', getAllKanbanQA);
+router.get('/stationtwo/kanbanqa/filter', getKanbanQAByDateAndKanban);
+router.patch('/stationtwo/kanbanqa/validate/qr', updateKanbanQAValidatedQR);
+router.patch('/stationtwo/kanbanqa/validate/barcode', updateKanbanQAValidatedBarcode);
 module.exports = router;

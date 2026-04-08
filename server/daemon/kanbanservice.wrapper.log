@@ -42,3 +42,25 @@ Stacktrace:   at System.Runtime.InteropServices.Marshal.ThrowExceptionForHRInter
    at winsw.WrapperService.OnShutdown()
 2026-03-04 16:45:12 - Starting C:\Program Files\nodejs\node.exe  --harmony "C:\Users\otile\Desktop\Kanban System\server\node_modules\node-windows\lib\wrapper.js" --file "C:\Users\otile\Desktop\Kanban System\server\index.js" --scriptoptions= --log "Kanban Service wrapper" --grow 0.25 --wait 1 --maxrestarts 3 --abortonerror n --stopparentfirst undefined
 2026-03-04 16:45:12 - Started 6124
+2026-03-11 02:16:35 - Stopping kanbanservice.exe
+2026-03-11 02:16:35 - ProcessKill 6124
+2026-03-11 02:16:35 - Shutdown exception
+Message:A system shutdown is in progress.
+
+Stacktrace:   at System.Runtime.InteropServices.Marshal.ThrowExceptionForHRInternal(Int32 errorCode, IntPtr errorInfo)
+   at System.Management.ManagementScope.InitializeGuts(Object o)
+   at System.Management.ManagementScope.Initialize()
+   at System.Management.ManagementObjectSearcher.Initialize()
+   at System.Management.ManagementObjectSearcher.Get()
+   at winsw.WrapperService.GetChildPids(Int32 pid)
+   at winsw.WrapperService.StopProcessAndChildren(Int32 pid)
+   at winsw.WrapperService.StopIt()
+   at winsw.WrapperService.OnShutdown()
+2026-03-11 10:25:09 - Starting C:\Program Files\nodejs\node.exe  --harmony "C:\Users\otile\Desktop\Kanban System\server\node_modules\node-windows\lib\wrapper.js" --file "C:\Users\otile\Desktop\Kanban System\server\index.js" --scriptoptions= --log "Kanban Service wrapper" --grow 0.25 --wait 1 --maxrestarts 3 --abortonerror n --stopparentfirst undefined
+2026-03-11 10:25:09 - Started 5956
+2026-03-19 13:29:46 - Starting C:\Program Files\nodejs\node.exe  --harmony "C:\Users\otile\Desktop\Kanban System\server\node_modules\node-windows\lib\wrapper.js" --file "C:\Users\otile\Desktop\Kanban System\server\index.js" --scriptoptions= --log "Kanban Service wrapper" --grow 0.25 --wait 1 --maxrestarts 3 --abortonerror n --stopparentfirst undefined
+2026-03-19 13:29:46 - Started 5956
+2026-03-25 10:59:53 - Starting C:\Program Files\nodejs\node.exe  --harmony "C:\Users\otile\Desktop\Kanban System\server\node_modules\node-windows\lib\wrapper.js" --file "C:\Users\otile\Desktop\Kanban System\server\index.js" --scriptoptions= --log "Kanban Service wrapper" --grow 0.25 --wait 1 --maxrestarts 3 --abortonerror n --stopparentfirst undefined
+2026-03-25 10:59:53 - Started 5856
+2026-03-31 00:29:57 - Starting C:\Program Files\nodejs\node.exe  --harmony "C:\Users\otile\Desktop\Kanban System\server\node_modules\node-windows\lib\wrapper.js" --file "C:\Users\otile\Desktop\Kanban System\server\index.js" --scriptoptions= --log "Kanban Service wrapper" --grow 0.25 --wait 1 --maxrestarts 3 --abortonerror n --stopparentfirst undefined
+2026-03-31 00:29:57 - Started 6120

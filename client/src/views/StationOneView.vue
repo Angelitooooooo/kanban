@@ -77,7 +77,7 @@
 							:type="printMode === 'bulk' ? 'text' : 'text'"
 							:inputmode="printMode === 'bulk' ? 'numeric' : undefined"
 							:maxlength="printMode === 'bulk' ? 3 : undefined"
-							:hint="printMode === 'bulk' ? 'Maximum 3 digits' : undefined"
+							:hint="printMode === 'bulk' ? 'Maximum 3 digits' : 'example : 40(1) or 40(2) to 40(40)'"
 							:persistent-hint="printMode === 'bulk'"
 							:error-messages="printInputError"
 							@input="onPrintInput"
@@ -556,9 +556,13 @@ export default {
 				}
 
 				// Remove last digit and add incrementing numbers
-				const baseValue = String(this.selectedPrintItem.value || '').slice(0, -1);
+				// const baseValue = String(this.selectedPrintItem.value || '').slice(0, -1);
+				const baseValue = this.selectedPrintItem.value
 				const items = Array(copyCount).fill(null).map((_, index) => {
-					const spec = `${baseValue}${String(index + 1).padStart(4, '0')}`;
+				let spec = `${baseValue} ${String(index + 1).padStart(4, '0')}`;
+				if (spec.includes("RR Cushion")) {
+					spec = spec.replace("RR Cushion", "RSC");
+				}
 					return {
 						value : this.selectedPrintItem.value,
 						specification: spec,
@@ -576,11 +580,15 @@ export default {
 			} else {
 				// Single print mode - print just the selected item
 				if (this.selectedPrintItem) {
-					const baseValue = String(this.selectedPrintItem.value || '').slice(0, -1);
+					// const baseValue = String(this.selectedPrintItem.value || '').slice(0, -1);
+					const baseValue = this.selectedPrintItem.value
 					const match = String(this.singlePrintInput || '').match(/\((\d+)\)/);
 					const numberFromParenthesis = match ? match[1] : '1';
 					const paddedNumber = String(numberFromParenthesis).padStart(4, '0');
-				const spec = `${baseValue}${paddedNumber}`;
+				let spec = `${baseValue} ${paddedNumber}`;
+				if (spec.includes("RR Cushion")) {
+					spec = spec.replace("RR Cushion", "RSC");
+				}
 				const items = [{
 					value : this.selectedPrintItem.value,
 					specification: spec,
@@ -590,6 +598,8 @@ export default {
 					qrData: spec
 					}];
 					// Call print function
+					console.log('Printing item:', items[0]);
+
 					await printStationOneLabels(items);
 				}
 			}

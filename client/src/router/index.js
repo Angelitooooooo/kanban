@@ -60,7 +60,22 @@ const routes = [
     path: '/station-one',
     name: 'station-one',
     component: () => import(/* webpackChunkName: "station-one" */ '../views/StationOneView.vue')
-    }
+    },
+        {
+    path: '/quality-control',
+    name: 'quality-control',
+    component: () => import(/* webpackChunkName: "quality-control" */ '../views/QualityView.vue')
+    },
+        {
+    path: '/station-two',
+    name: 'station-two',
+    component: () => import(/* webpackChunkName: "station-two" */ '../views/StationTwoView.vue')
+    },
+    {
+    path: '/quality-admin',
+    name: 'quality-admin',
+    component: () => import(/* webpackChunkName: "station-two" */ '../views/QualityAssuranceView.vue')
+    },
 ]
 
 const router = new VueRouter({
@@ -95,9 +110,11 @@ router.beforeEach((to, from, next) => {
     if (station === 1) {
       next('/station-one');
     } else if (station === 2) {
-      next('/kanban');
+      next('/station-two');
     } else if (isAdmin === 1) {
       next('/admin');
+    } else if (station === 3) {
+      next('/quality-control');
     } else {
       next('/');
     }
@@ -108,8 +125,11 @@ router.beforeEach((to, from, next) => {
   if (station === 1 && to.path !== '/station-one') {
     next('/station-one');
     return;
-  } else if (station === 2 && to.path !== '/kanban') {
-    next('/kanban');
+  } else if (station === 2 && to.path !== '/station-two') {
+    next('/station-two');
+    return;
+  }else if (station === 3 && to.path !== '/quality-control') {
+    next('/quality-control');
     return;
   }
 

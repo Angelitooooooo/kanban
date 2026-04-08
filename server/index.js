@@ -9,12 +9,15 @@ const { pool } = require("./db");
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
+	transports: ["websocket", "polling"],
+	allowEIO3: true,
 	cors: {
 		origin: "*",
-		methods: ["GET", "POST"]
+		methods: ["GET", "POST"],
+		credentials: true
 	}
 });
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());

@@ -19,6 +19,13 @@ exports.seed = async function(knex) {
       model : '036J'
     },
     {
+      username: 'user3',
+      password: 'user123',
+      isAdmin: false,
+      station : 3,
+      model : '036J'
+    },
+    {
       username: 'user2',
       password: 'user123',
       isAdmin: false,

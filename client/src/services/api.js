@@ -1,7 +1,7 @@
 import axios from 'axios';
 import store from '../store';
 
-const API_BASE_URL = process.env.VUE_APP_API_BASE_URL || 'http://192.168.0.100:5000';
+const API_BASE_URL = process.env.VUE_APP_API_BASE_URL ||'http://192.168.0.100:5000';
 
 const instance = axios.create({
   baseURL: `${API_BASE_URL}/api`,

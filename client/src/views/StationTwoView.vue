@@ -23,23 +23,55 @@
                   color="primary"
                   style="margin-right: 10px;"
                 ></v-progress-circular>
-                <v-autocomplete
-                  v-model="selectedBatchId"
-                  :items="batchList"
-                  :search-input.sync="batchSearch"
-                  item-text="name"
-                  item-value="id"
-                  label="Search Model"
-                  clearable
-                  dense
-                  outlined
-                  hide-details
-                  :disabled="isFetchingBatches"
-                  :loading="isFetchingBatches"
-                  class="batch-select"
-                  style="max-width: 250px; background: white; border-radius: 8px;"
-                  @change="loadBatchData"
-                ></v-autocomplete>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <v-menu
+                    ref="menu"
+                    v-model="dateMenu"
+                    :close-on-content-click="false"
+                    transition="scale-transition"
+                    offset-y
+                    min-width="auto"
+                  >
+                    <template v-slot:activator="{ on, attrs }">
+                      <v-text-field
+                          v-model="selectedDate"
+                          label="Select Date"
+                          prepend-icon="mdi-calendar"
+                          readonly
+                          dense
+                          outlined
+                          class="date-picker-field"
+                          style="width: 200px; height: 40px; background: white; border-radius: 8px; margin-right: 0;"
+                          v-bind="attrs"
+                          v-on="on"
+                        />
+                    </template>
+                    <v-date-picker
+                      v-model="selectedDate"
+                      @input="dateMenu = false"
+                      :max="new Date().toISOString().substr(0, 10)"
+                      color="primary"
+                      class="date-picker-popup"
+                    />
+                  </v-menu>
+                  <v-autocomplete
+                    v-model="selectedBatchId"
+                    :items="batchList"
+                    :search-input.sync="batchSearch"
+                    item-text="name"
+                    item-value="id"
+                    label="Search Model"
+                    clearable
+                    dense
+                    outlined
+                    hide-details
+                    :disabled="isFetchingBatches"
+                    :loading="isFetchingBatches"
+                    class="batch-select"
+                    style="width: 250px; height: 40px; background: white; border-radius: 8px;"
+                    @change="loadBatchData"
+                  ></v-autocomplete>
+                </div>
               </div>
               <div class="kanban-hero-title">Station: {{ station }}</div>
               <div class="kanban-hero-meta">
@@ -157,7 +189,7 @@
           </template>
 
           <!-- Temporary Manual Scan Input -->
-          <!-- <div class="d-flex flex-column align-center mt-8">
+            <!-- <div class="d-flex flex-column align-center mt-8">
             <v-text-field
               v-model="manualScanInput"
               label="Manual Scan Input (temporary)"
@@ -169,6 +201,7 @@
             />
             <v-alert v-if="error" type="error" class="mt-4">{{ error }}</v-alert>
           </div> -->
+          
         </v-card>
       </v-col>
     </v-row>
@@ -182,7 +215,7 @@ import api from '../services/api'
 import Swal from 'sweetalert2'
 
 export default {
-  name: 'KanbanVuetifyView',
+  name: 'StationTwoView',
   data() {
     return {
       currentSet: 0,
@@ -203,6 +236,8 @@ export default {
       selectedBatchId: null,
       isFetchingBatches: false,
       batchSearch: '',
+      selectedDate: new Date().toISOString().substr(0, 10),
+      dateMenu: false,
       kanbanColumns: ['FSC LH', 'FSC RH', 'FSB LH', 'FSB RH', 'RSB RH', 'RSB LH', 'RSC'],
       kanbanData: [
         {
@@ -255,18 +290,6 @@ export default {
       ]
     }
   },
- watch: {
-    scanInput(newVal, oldVal) {
-        if (newVal && !oldVal) {
-        this.delayedLoading = true;
-        setTimeout(() => {
-            this.delayedLoading = false;
-        }, 1000); // 1 second delay
-        } else if (!newVal) {
-        this.delayedLoading = false;
-        }
-    }
- },
   computed: {
       isPrintAllowed() {
         // Check if all rows in all columns have completed QR data
@@ -315,17 +338,35 @@ export default {
   },
   mounted() {
     this.normalizeDataSet();
-    this.fetchBatches();
+    // this.fetchBatches();
+    this.getAllKanbanQA(this.selectedDate);
     window.addEventListener('keydown', this.onGlobalScannerKeydown);
     this.generateAllQRCodes().then(() => {
       this.$nextTick(() => this.generateBarcodesForCurrentSet());
     });
     // Listen for socket events to refresh data
     this.$socket.on('refresh-kanban-prints', () => {
-      this.fetchBatches();
+      // this.fetchBatches();
+        this.getAllKanbanQA(this.selectedDate);
     });
-    console.log('KanbanVuetifyView mounted with station:', this.kanbanData);
+    // Initial KanbanQA fetch for today
   },
+    watch: {
+      selectedDate(newDate) {
+        this.getAllKanbanQA(newDate);
+      },
+      scanInput(newVal, oldVal) {
+        if (newVal && !oldVal) {
+          this.delayedLoading = true;
+          setTimeout(() => {
+            this.delayedLoading = false;
+          }, 1000); // 1 second delay
+        } else if (!newVal) {
+          this.delayedLoading = false;
+        }
+      }
+    },
+
   beforeDestroy() {
     window.removeEventListener('keydown', this.onGlobalScannerKeydown);
     this.clearScannerBufferTimer();
@@ -334,10 +375,110 @@ export default {
     this.$socket.off('refresh-kanban-prints');
   },
   methods: {
-          triggerManualScan() {
-            const value = String(this.manualScanInput || '').trim();
+        async getAllKanbanQA(date) {
+          try {
+            this.isFetchingBatches = true;
+            // Replace with your actual API endpoint and params
+            const response = await api.get('/stationtwo/kanbanqa', {
+              params: { date }
+            });
+
+            let kanbanQAData = response.data.map(item => ({
+              ...item,
+              data_set : this.$store.state.user?.data_set || this.dataSet // Use data_set from user state or fallback to local dataSet
+            }));
+            this.batchList = kanbanQAData; // Assuming you want to populate batchList with this data
+            if (this.batchList.length > 0) {
+              this.selectedBatchId = this.batchList[0].id;
+              this.loadBatchData()
+            }
+            // Handle response data as needed
+            // Example: this.kanbanQAData = response.data;
+            this.isFetchingBatches = false;
+
+          } catch (error) {
+            this.playBeep(true);
+            this.isFetchingBatches = false;
+            this.saveErrorLog('getAllKanbanQA', error);
+          }
+        },
+          triggerManualScan(rawValue) {
+            const value = String(rawValue || this.manualScanInput || '').trim();
+            
             if (!value) return;
-            this.submitScannedValue(value);
+          const scanType = this.detectScanType(value);
+          if (scanType === 'Barcode') {
+            const selectedBatch = this.batchList.find(b => b.id === this.selectedBatchId);
+            api.patch(`/stationtwo/kanbanqa/validate/barcode?value=${encodeURIComponent(value)}&date=${encodeURIComponent(this.selectedDate)}&kanban=${encodeURIComponent(selectedBatch.name)}`)
+              .then(() => {
+                this.loadBatchData()
+                 this.playBeep(false);
+                Swal.fire({
+                  icon: 'success',
+                  title: 'Validated',
+                  text: `KanbanQA row validated!`,
+                  timer: 1500,
+                  showConfirmButton: false
+                });
+              })
+              .catch(err => {
+                 this.playBeep(true);
+                Swal.fire({
+                  icon: 'error',
+                  title: 'Validation Failed',
+                  text: err?.response?.data?.error || 'API error',
+                  allowEnterKey: true,
+                  showConfirmButton: false
+                });
+              });
+
+          }else if (scanType === 'QR') {
+            if (this.selectedBatchId) {
+              const selectedBatch = this.batchList.find(b => b.id === this.selectedBatchId);
+              if (selectedBatch) {
+                const trimmedValue = value.startsWith('RSC')
+                  ? value.slice(4)
+                  : value.slice(7);
+
+                  let batchValue = selectedBatch.name.slice(0,selectedBatch.name.length)
+                  console.log(batchValue)
+                if (!trimmedValue.startsWith(batchValue)) {
+                  // ...existing code...
+                   this.playBeep(true);
+                  Swal.fire({
+                    icon: 'error',
+                    title: 'Model Mismatch',
+                    html: `QR code does not match selected Model "<strong>${selectedBatch.name}</strong>".<br><br>Scanned: "<strong>${trimmedValue}</strong>"`,
+                    allowEnterKey: true,
+                    showConfirmButton: false
+                  });
+                  return;
+                }
+              }
+            }
+            api.patch(`/stationtwo/kanbanqa/validate/qr?value=${encodeURIComponent(value)}&date=${encodeURIComponent(this.selectedDate)})}`)
+              .then(() => {
+                this.loadBatchData()
+                this.playBeep(false);
+                Swal.fire({
+                  icon: 'success',
+                  title: 'Validated',
+                  text: `KanbanQA row validated!`,
+                  timer: 1500,
+                  showConfirmButton: false
+                });
+              })
+              .catch(err => {
+                this.playBeep(true);
+                Swal.fire({
+                  icon: 'error',
+                  title: 'Validation Failed',
+                  text: err?.response?.data?.error || 'API error',
+                  allowEnterKey: true,
+                  showConfirmButton: false
+                });
+              });
+          }
             this.manualScanInput = '';
           },
       async printPage() {
@@ -369,12 +510,12 @@ export default {
           });
           // Dynamically import and call printZebraLabels100Bulk
           if(allItems.length === 0) {
+             this.playBeep(true);
             Swal.fire({
               icon: 'info',
               title: 'No QR Codes',
               text: 'There are no QR codes to print on the current page.',
-              timer: 2000,
-              timerProgressBar: true,
+              allowEnterKey: true,
               showConfirmButton: false
             });
             return;
@@ -415,6 +556,7 @@ export default {
               await this.loadBatchData();
             }
           } catch (error) {
+             this.playBeep(true);
             this.saveErrorLog('fetchBatches', error);
           } finally {
             this.isFetchingBatches = false;
@@ -436,11 +578,22 @@ export default {
             // Reset row page to show first rows (1-5)
             this.rowPage = 0;
             
-            const station = this.$store.state.user?.station;
-            const response = await api.get(`/kanbans/${this.selectedBatchId}/data`, {
-              params: { station }
+            // const response = await api.get(`/kanbans/${this.selectedBatchId}/data`, {
+            //   params: { station }
+            // })
+
+            const response = await api.get('/stationtwo/kanbanqa/filter', {
+              params: {
+                date: this.selectedDate,
+                kanban: selectedBatch.name
+              }
             });
-            const kanbanSetData = response.data;
+            // console.log(response.data, 'Batch Data Response');
+            // const kanbanSetData = response.data;
+            const kanbanSetData = response.data.map(rec => ({
+              ...rec,
+              columnName: rec.columnName === "RR Cus" ? "RSC" : rec.columnName
+            }));
             
             // Clear existing data in all columns
             this.currentData.columns.forEach(column => {
@@ -452,7 +605,6 @@ export default {
               const column = this.currentData.columns.find(
                 col => col.header === item.columnName
               );
-              
               if (column && item.row > 0 && item.row <= this.totalRows) {
                 const rowIndex = item.row - 1; // Convert to 0-based index
                 
@@ -585,23 +737,30 @@ export default {
             this.saveErrorLog('createNewBatch', error);
           }
         },
-        playBeep() {
-          const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-          const oscillator = audioContext.createOscillator();
-          const gainNode = audioContext.createGain();
-          
-          oscillator.connect(gainNode);
-          gainNode.connect(audioContext.destination);
-          
-          oscillator.frequency.value = 1000; // Hz (higher pitch, more like barcode scanner)
-          oscillator.type = 'sine';
-          
-          gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
-          
-          oscillator.start(audioContext.currentTime);
-          oscillator.stop(audioContext.currentTime + 0.15);
-        },
+		playBeep(isError = false) {
+			const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+			const oscillator = audioContext.createOscillator();
+			const gainNode = audioContext.createGain();
+
+			oscillator.connect(gainNode);
+			gainNode.connect(audioContext.destination);
+
+			if (isError) {
+				oscillator.frequency.value = 300; // Lower pitch for error
+				oscillator.type = 'square';
+				gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+				gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.35);
+				oscillator.start(audioContext.currentTime);
+				oscillator.stop(audioContext.currentTime + 0.35);
+			} else {
+				oscillator.frequency.value = 1000; // Normal beep
+				oscillator.type = 'sine';
+				gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
+				gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+				oscillator.start(audioContext.currentTime);
+				oscillator.stop(audioContext.currentTime + 0.15);
+			}
+		},
         normalizeDataSet() {
           const target = Math.max(0, Number(this.dataSet) || 0);
           this.kanbanData.forEach(set => {
@@ -628,7 +787,8 @@ export default {
       }
       if (event.key === 'Enter' || event.key === 'Tab') {
         if (this.scannerBuffer.trim()) {
-          this.submitScannedValue(this.scannerBuffer);
+          // this.submitScannedValue(this.scannerBuffer);
+          this.triggerManualScan(this.scannerBuffer)
           event.preventDefault();
         }
         this.scannerBuffer = '';
@@ -671,12 +831,12 @@ export default {
       if (scanType === 'Barcode') {
         // Check for duplicate barcode scan
         if (this.scannedList.includes(value)) {
+           this.playBeep(true);
           Swal.fire({
             icon: 'warning',
             title: 'Duplicate Barcode',
             text: 'This barcode has already been scanned.',
-            timer: 2000,
-            timerProgressBar: true,
+              timerProgressBar: true,
             showConfirmButton: false
           });
           return;
@@ -730,7 +890,7 @@ export default {
                   this.scannedList.push(value);
                 }
                 
-                this.playBeep();
+                this.playBeep(false);
               } catch (err) {
                 await this.saveErrorLog('/station-one', `Error fetching kanban prints: ${err.message}`);
               }
@@ -792,8 +952,9 @@ export default {
                   this.scannedList.push(value);
                 }
                 
-                this.playBeep();
+                this.playBeep(false);
               } catch (err) {
+                 this.playBeep(true);
                 await this.saveErrorLog('/station-one', `Error fetching kanban prints: ${err.message}`);
               }
             }
@@ -844,8 +1005,9 @@ export default {
                   this.scannedList.push(value);
                 }
                 
-                this.playBeep();
+                this.playBeep(false);
               } catch (err) {
+                 this.playBeep(true);
                 await this.saveErrorLog('/station-one', `Error generating barcode image: ${err.message}`);
               }
             } else {
@@ -906,18 +1068,18 @@ export default {
                   this.scannedList.push(value);
                 }
                 
-                this.playBeep();
+                this.playBeep(false);
               } catch (err) {
                 await this.saveErrorLog('/station-one', `Error fetching kanban prints: ${err.message}`);
               }
             }
           }
         } else {
+           this.playBeep(true);
           Swal.fire({
             icon: 'warning',
             title: 'Barcode Position Unknown',
             text: 'The scanned barcode does not indicate Left or Right position. Please check the barcode format.',
-            timer: 2500,
             timerProgressBar: true,
             showConfirmButton: false
           });
@@ -927,11 +1089,11 @@ export default {
 
       // If it's Unknown, show error and return
       if (scanType === 'Unknown') {
+         this.playBeep(true);
         Swal.fire({
           icon: 'error',
           title: 'Invalid Scan',
           text: 'Unable to identify the scanned code. Please scan a valid QR/Barcode.',
-          timer: 3000,
           timerProgressBar: true,
           showConfirmButton: false
         });
@@ -949,11 +1111,11 @@ export default {
             let batchValue = selectedBatch.name.slice(0,selectedBatch.name.length -1)
           if (!trimmedValue.startsWith(batchValue)) {
             // ...existing code...
+             this.playBeep(true);
             Swal.fire({
               icon: 'error',
               title: 'Model Mismatch',
               html: `QR code does not match selected Model "<strong>${selectedBatch.name}</strong>".<br><br>Scanned: "<strong>${trimmedValue}</strong>"`,
-              timer: 3000,
               timerProgressBar: true,
               showConfirmButton: false
             });
@@ -1041,20 +1203,20 @@ export default {
           });
           
           if (allRowsFilled) {
+             this.playBeep(true);
             Swal.fire({
               icon: 'warning',
               title: 'Batch Full',
               text: `This batch is full (${this.totalRows}/${this.totalRows}). Cannot add more QR codes.`,
-              timer: 2000,
               timerProgressBar: true,
               showConfirmButton: false
             });
           } else {
+             this.playBeep(true);
             Swal.fire({
               icon: 'warning',
               title: 'No Empty Slots',
               text: 'No empty slots available.',
-              timer: 2000,
               timerProgressBar: true,
               showConfirmButton: false
             });
@@ -1070,13 +1232,13 @@ export default {
       if (!this.scannedList.includes(value)) {
         this.scannedList.push(value);
       } else {
+         this.playBeep(true);
         // ...existing code...
         Swal.fire({
           icon: 'warning',
           title: 'Duplicate QR Code',
           text: 'This QR code has already been scanned.',
-          timer: 2000,
-          timerProgressBar: true,
+    timerProgressBar: true,
           showConfirmButton: false
         });
         return;
@@ -1134,7 +1296,7 @@ export default {
           this.sendQrScan(payload);
           
           // ...existing code...
-          this.playBeep();
+          this.playBeep(false);
         });
       }
     },
