@@ -836,7 +836,7 @@ export default {
             icon: 'warning',
             title: 'Duplicate Barcode',
             text: 'This barcode has already been scanned.',
-              timerProgressBar: true,
+              allowEnterKey: true,
             showConfirmButton: false
           });
           return;
@@ -1080,7 +1080,7 @@ export default {
             icon: 'warning',
             title: 'Barcode Position Unknown',
             text: 'The scanned barcode does not indicate Left or Right position. Please check the barcode format.',
-            timerProgressBar: true,
+            allowEnterKey: true,
             showConfirmButton: false
           });
         }
@@ -1094,7 +1094,7 @@ export default {
           icon: 'error',
           title: 'Invalid Scan',
           text: 'Unable to identify the scanned code. Please scan a valid QR/Barcode.',
-          timerProgressBar: true,
+          allowEnterKey: true,
           showConfirmButton: false
         });
         return;
@@ -1116,7 +1116,7 @@ export default {
               icon: 'error',
               title: 'Model Mismatch',
               html: `QR code does not match selected Model "<strong>${selectedBatch.name}</strong>".<br><br>Scanned: "<strong>${trimmedValue}</strong>"`,
-              timerProgressBar: true,
+              allowEnterKey: true,
               showConfirmButton: false
             });
             return;
@@ -1208,7 +1208,7 @@ export default {
               icon: 'warning',
               title: 'Batch Full',
               text: `This batch is full (${this.totalRows}/${this.totalRows}). Cannot add more QR codes.`,
-              timerProgressBar: true,
+              allowEnterKey: true,
               showConfirmButton: false
             });
           } else {
@@ -1217,7 +1217,7 @@ export default {
               icon: 'warning',
               title: 'No Empty Slots',
               text: 'No empty slots available.',
-              timerProgressBar: true,
+              allowEnterKey: true,
               showConfirmButton: false
             });
           }
@@ -1238,7 +1238,7 @@ export default {
           icon: 'warning',
           title: 'Duplicate QR Code',
           text: 'This QR code has already been scanned.',
-    timerProgressBar: true,
+          allowEnterKey: true,
           showConfirmButton: false
         });
         return;
