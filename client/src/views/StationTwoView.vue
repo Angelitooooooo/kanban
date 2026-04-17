@@ -49,7 +49,6 @@
                     <v-date-picker
                       v-model="selectedDate"
                       @input="dateMenu = false"
-                      :max="new Date().toISOString().substr(0, 10)"
                       color="primary"
                       class="date-picker-popup"
                     />
@@ -71,8 +70,18 @@
                     style="width: 250px; height: 40px; background: white; border-radius: 8px;"
                     @change="loadBatchData"
                   ></v-autocomplete>
+                  <v-text-field
+                    v-model="manualScanInput"
+                    label="Manual Scan Input (temporary)"
+                    outlined
+                    dense
+                    style="width: 250px; height: 40px; background: white; border-radius: 8px;"
+                    @keyup.enter.native="triggerManualScan"
+                    placeholder="Type or paste scan value and press Enter"
+                 />
                 </div>
               </div>
+
               <div class="kanban-hero-title">Station: {{ station }}</div>
               <div class="kanban-hero-meta">
                 <v-chip class="kanban-chip" label>Rows {{ rowRangeLabel }}</v-chip>
@@ -189,7 +198,7 @@
           </template>
 
           <!-- Temporary Manual Scan Input -->
-            <!-- <div class="d-flex flex-column align-center mt-8">
+          <!-- <div class="d-flex flex-column align-center mt-8">
             <v-text-field
               v-model="manualScanInput"
               label="Manual Scan Input (temporary)"
@@ -200,7 +209,7 @@
               placeholder="Type or paste scan value and press Enter"
             />
             <v-alert v-if="error" type="error" class="mt-4">{{ error }}</v-alert>
-          </div> -->
+          </div>  -->
           
         </v-card>
       </v-col>
@@ -403,10 +412,15 @@ export default {
           }
         },
           triggerManualScan(rawValue) {
-            const value = String(rawValue || this.manualScanInput || '').trim();
-            
+            let value = String(rawValue || this.manualScanInput || '').trim();
             if (!value) return;
-          const scanType = this.detectScanType(value);
+            if (rawValue instanceof Event) {
+              value = rawValue.target.value;
+            } else {
+              value = String(rawValue || this.manualScanInput || '').trim();
+            }
+          let scanType = this.detectScanType(value);
+
           if (scanType === 'Barcode') {
             const selectedBatch = this.batchList.find(b => b.id === this.selectedBatchId);
             api.patch(`/stationtwo/kanbanqa/validate/barcode?value=${encodeURIComponent(value)}&date=${encodeURIComponent(this.selectedDate)}&kanban=${encodeURIComponent(selectedBatch.name)}`)
@@ -417,7 +431,7 @@ export default {
                   icon: 'success',
                   title: 'Validated',
                   text: `KanbanQA row validated!`,
-                  timer: 1500,
+                  timer: 4000,
                   showConfirmButton: false
                 });
               })
@@ -440,20 +454,36 @@ export default {
                   ? value.slice(4)
                   : value.slice(7);
 
-                  let batchValue = selectedBatch.name.slice(0,selectedBatch.name.length)
-                  console.log(batchValue)
-                if (!trimmedValue.startsWith(batchValue)) {
-                  // ...existing code...
-                   this.playBeep(true);
-                  Swal.fire({
-                    icon: 'error',
-                    title: 'Model Mismatch',
-                    html: `QR code does not match selected Model "<strong>${selectedBatch.name}</strong>".<br><br>Scanned: "<strong>${trimmedValue}</strong>"`,
-                    allowEnterKey: true,
-                    showConfirmButton: false
-                  });
-                  return;
-                }
+                  // let batchValue = selectedBatch.name.slice(0,selectedBatch.name.length)
+                  let batchValue = Object.assign({},{kanban : selectedBatch.name.split(' ')[0] , date : selectedBatch.name.split(' ').find(p => /^\d{6}$/.test(p)) || null  }  );
+
+                  const parts = trimmedValue.split(' ');
+                  let finalTrimmedValue = Object.assign( {},{ kanban : parts[0] , date :  parts.find(p => /^\d{6}$/.test(p)) || null });
+                  if(batchValue.date != finalTrimmedValue.date || batchValue.kanban != finalTrimmedValue.kanban){
+                     this.playBeep(true);
+                    Swal.fire({
+                      icon: 'error',
+                      title: 'Model Mismatch',
+                      html: `QR code does not match selected Model "<strong>${selectedBatch.name}</strong>".<br><br>Scanned: "<strong>${trimmedValue}</strong>"`,
+                      allowEnterKey: true,
+                      showConfirmButton: false
+                    });
+                    return;
+                  }
+
+                  
+                // if (!trimmedValue.startsWith(batchValue)) {
+                //   // ...existing code...
+                //    this.playBeep(true);
+                //   Swal.fire({
+                //     icon: 'error',
+                //     title: 'Model Mismatch',
+                //     html: `QR code does not match selected Model "<strong>${selectedBatch.name}</strong>".<br><br>Scanned: "<strong>${trimmedValue}</strong>"`,
+                //     allowEnterKey: true,
+                //     showConfirmButton: false
+                //   });
+                //   return;
+                // }
               }
             }
             api.patch(`/stationtwo/kanbanqa/validate/qr?value=${encodeURIComponent(value)}&date=${encodeURIComponent(this.selectedDate)})}`)
@@ -464,7 +494,7 @@ export default {
                   icon: 'success',
                   title: 'Validated',
                   text: `KanbanQA row validated!`,
-                  timer: 1500,
+                  timer: 4000,
                   showConfirmButton: false
                 });
               })
@@ -588,7 +618,6 @@ export default {
                 kanban: selectedBatch.name
               }
             });
-            // console.log(response.data, 'Batch Data Response');
             // const kanbanSetData = response.data;
             const kanbanSetData = response.data.map(rec => ({
               ...rec,
@@ -605,6 +634,7 @@ export default {
               const column = this.currentData.columns.find(
                 col => col.header === item.columnName
               );
+              
               if (column && item.row > 0 && item.row <= this.totalRows) {
                 const rowIndex = item.row - 1; // Convert to 0-based index
                 
@@ -746,12 +776,24 @@ export default {
 			gainNode.connect(audioContext.destination);
 
 			if (isError) {
-				oscillator.frequency.value = 300; // Lower pitch for error
-				oscillator.type = 'square';
-				gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
-				gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.35);
-				oscillator.start(audioContext.currentTime);
-				oscillator.stop(audioContext.currentTime + 0.35);
+        const now = audioContext.currentTime;
+
+        [0, 0.7, 1.4, 2.1, 2.8].forEach(offset => {
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+
+          oscillator.frequency.value = 400; // Lower pitch for error
+          oscillator.type = 'square';
+
+          gainNode.gain.setValueAtTime(5, now + offset);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, now + offset + 0.6);
+
+          oscillator.start(now + offset);
+          oscillator.stop(now + offset + 0.6);
+        });
 			} else {
 				oscillator.frequency.value = 1000; // Normal beep
 				oscillator.type = 'sine';

@@ -19,8 +19,11 @@ export const printStationOneLabels = async (items) => {
 	for (const item of items) {
 		// Generate QR code from item.qrData
 		let qrImg = '';
+		const d = new Date();
+		const formatted = `${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}${String(d.getFullYear()).slice(-2)}`;
+		console.log('Formatted date for QR code:', formatted);
 		if (item.qrData) {
-			qrImg = await QRCode.toDataURL(String(item.qrData), {
+			qrImg = await QRCode.toDataURL(String(`${item.qrData} ${formatted}`), {
 				errorCorrectionLevel: 'H',
 				type: 'image/png',
 				quality: 0.92,

@@ -8,7 +8,7 @@ const socket = io(API_BASE_URL, {
   reconnectionDelay: 1000,
   reconnectionAttempts: 5
 });
-
+  
 socket.on('connect', () => {
 //   console.log('Socket connected:', socket.id);
 });

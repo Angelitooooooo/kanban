@@ -135,12 +135,24 @@ export default {
 			gainNode.connect(audioContext.destination);
 
 			if (isError) {
-				oscillator.frequency.value = 300; // Lower pitch for error
+			const now = audioContext.currentTime;
+
+				[0, 0.7, 1.4, 2.1, 2.8].forEach(offset => {
+				const oscillator = audioContext.createOscillator();
+				const gainNode = audioContext.createGain();
+
+				oscillator.connect(gainNode);
+				gainNode.connect(audioContext.destination);
+
+				oscillator.frequency.value = 400; // Lower pitch for error
 				oscillator.type = 'square';
-				gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
-				gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.35);
-				oscillator.start(audioContext.currentTime);
-				oscillator.stop(audioContext.currentTime + 0.35);
+
+				gainNode.gain.setValueAtTime(5, now + offset);
+				gainNode.gain.exponentialRampToValueAtTime(0.01, now + offset + 0.6);
+
+				oscillator.start(now + offset);
+				oscillator.stop(now + offset + 0.6);
+				});
 			} else {
 				oscillator.frequency.value = 1000; // Normal beep
 				oscillator.type = 'sine';
@@ -177,7 +189,7 @@ export default {
 								title: 'Cannot Add',
 								text: 'The last kanban does not have QR code. Please scan QR code for that kanban first.',
 								icon: 'warning',
-								timer: 2500,
+								timer: 4000,
 								timerProgressBar: true,
 								showConfirmButton: false
 							});
@@ -193,7 +205,7 @@ export default {
                                 title: 'Cannot Add',
                                 text: 'The last kanban matches a user condition and its barcode is empty. Please scan barcode for that kanban first.',
                                 icon: 'warning',
-                                timer: 2500,
+                                timer: 4000,
                                 timerProgressBar: true,
                                 showConfirmButton: false
                             });
@@ -226,7 +238,7 @@ export default {
                                 title: 'Save Failed',
                                 text: 'Could not add KanbanQA row.',
                                 icon: 'error',
-                                timer: 2500,
+                                timer: 4000,
                                 timerProgressBar: true,
                                 showConfirmButton: false
                             });
@@ -257,7 +269,7 @@ export default {
 								title: 'Duplicate QR',
 								text: 'This QR code already exists in another row.',
 								icon: 'error',
-								timer: 3000,
+								timer: 4000,
 								timerProgressBar: true,
 								showConfirmButton: false
 							});
@@ -305,7 +317,7 @@ export default {
                                 title: 'Error',
                                 text: 'Failed to update QR code.',
                                 icon: 'error',
-                                timer: 2500,
+                                timer: 4000,
                                 timerProgressBar: true,
                                 showConfirmButton: false
                             });
@@ -321,7 +333,7 @@ export default {
                         title: 'Error',
                         text: 'Please scan kanban detail first.',
                         icon: 'error',
-						timer: 3000,
+						timer: 4000,
 						timerProgressBar: true,
 						showConfirmButton: false
                     });
@@ -336,16 +348,29 @@ export default {
 			// C0006631331L
 			if (value.startsWith('C')) {
 				// Duplicate QR+Kanban check: error if any row (except target) has both same QR and Kanban
-				const duplicateQRKanbanRow = this.rows.find(
-					r => r.qr && r.barcode && r.barcode === value && r.kanban === (this.lastAddedRowId !== null ? (this.rows.find(row => row.id === this.lastAddedRowId)?.kanban) : null)
+				// const duplicateQRKanbanRow = this.rows.find(
+				// 	r => r.qr && r.barcode && r.barcode === value && r.kanban === (this.lastAddedRowId !== null ? (this.rows.find(row => row.id === this.lastAddedRowId)?.kanban) : null)
+				// );
+
+				const LastItemUpdated = this.rows.reduce((max, item) => item.id > max.id ? item : max);
+				const parts = LastItemUpdated.qr.replace(/^FSB LH\s+/, '').split(' ');
+
+				let finalTrimmedValue = Object.assign( {},{ kanban : parts[0] , date :  parts.find(p => /^\d{6}$/.test(p)) || null });
+
+				const results = this.rows.filter(item =>
+					item.qr.includes(finalTrimmedValue.kanban) &&
+					item.qr.includes(finalTrimmedValue.date) &&
+					item.id !== LastItemUpdated.id
 				);
-				if (duplicateQRKanbanRow) {
+
+				const isDuplicate = results.some(item => item.barcode === value);
+				if (isDuplicate) {
 					this.playBeep(true);
 					Swal.fire({
 						title: 'Duplicate Barcode',
 						text: 'This barcode and kanban combination already exists in another row.',
 						icon: 'error',
-						timer: 3000,
+						timer: 4000,
 						timerProgressBar: true,
 						showConfirmButton: false
 					});
@@ -375,7 +400,7 @@ export default {
 						title: 'Error',
 						text: 'QR code does not match. Please fix the QR code first before scanning the barcode.',
 						icon: 'error',
-						timer: 3000,
+						timer: 4000,
 						timerProgressBar: true,
 						showConfirmButton: false
 					});
@@ -402,7 +427,7 @@ export default {
 							title: 'Error',
 							text: 'Failed to update barcode.',
 							icon: 'error',
-							timer: 2500,
+							timer: 4000,
 							timerProgressBar: true,
 							showConfirmButton: false
 						});
@@ -413,7 +438,7 @@ export default {
 						title: 'Error',
 						text: 'This Kanban Should not have barcode.',
 						icon: 'error',
-						timer: 3000,
+						timer: 4000,
 						timerProgressBar: true,
 						showConfirmButton: false
 					});
@@ -446,7 +471,7 @@ export default {
                         title: 'Error',
                         text: 'Failed to load QA data.',
                         icon: 'error',
-                        timer: 2500,
+                        timer: 4000,
                         timerProgressBar: true,
                         showConfirmButton: false
                     });
