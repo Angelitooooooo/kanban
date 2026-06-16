@@ -91,18 +91,18 @@ const createKanbanQA = async (req, res) => {
 
     const inserted = await db('Kanban_qa').where('id', insertedId).first();
 
-    const io = req.app.get('io');
-    const socket = req.app.get('socket'); // Assume sender's socket is attached to req.app
-    if (io) {
-      const payload = {
-        message: "New kanban print created"
-      };
-      if (socket) {
-        socket.broadcast.emit('refresh-kanban-prints', payload);
-      } else {
-        io.emit('refresh-kanban-prints', payload);
-      }
-    }
+    // const io = req.app.get('io');
+    // const socket = req.app.get('socket'); // Assume sender's socket is attached to req.app
+    // if (io) {
+    //   const payload = {
+    //     message: "New kanban print created"
+    //   };
+    //   if (socket) {
+    //     socket.broadcast.emit('refresh-kanban-prints', payload);
+    //   } else {
+    //     io.emit('refresh-kanban-prints', payload);
+    //   }
+    // }
 
     res.status(201).json(inserted);
   } catch (error) {
@@ -129,18 +129,18 @@ const updateKanbanQAById = async (req, res) => {
     await db('Kanban_qa').where('id', id).update({ qr_kanban, status, updated_at: new Date() });
     const updated = await db('Kanban_qa').where('id', id).first();
 
-    const io = req.app.get('io');
-    const socket = req.app.get('socket'); // Assume sender's socket is attached to req.app
-    if (io) {
-      const payload = {
-        message: "New kanban print created"
-      };
-      if (socket) {
-        socket.broadcast.emit('refresh-kanban-prints', payload);
-      } else {
-        io.emit('refresh-kanban-prints', payload);
-      }
-    }
+    // const io = req.app.get('io');
+    // const socket = req.app.get('socket'); // Assume sender's socket is attached to req.app
+    // if (io) {
+    //   const payload = {
+    //     message: "New kanban print created"
+    //   };
+    //   if (socket) {
+    //     socket.broadcast.emit('refresh-kanban-prints', payload);
+    //   } else {
+    //     io.emit('refresh-kanban-prints', payload);
+    //   }
+    // }
     res.status(200).json(updated);
   } catch (error) {
     console.error('Error updating KanbanQA qr_kanban:', error);
@@ -172,18 +172,18 @@ const updateBarcodeById = async (req, res) => {
     await db('Kanban_qa').where('id', id).update({ barcode, status, updated_at: new Date() });
     const updated = await db('Kanban_qa').where('id', id).first();
 
-    const io = req.app.get('io');
-    const socket = req.app.get('socket'); // Assume sender's socket is attached to req.app
-    if (io) {
-      const payload = {
-        message: "New kanban print created"
-      };
-      if (socket) {
-        socket.broadcast.emit('refresh-kanban-prints', payload);
-      } else {
-        io.emit('refresh-kanban-prints', payload);
-      }
-    }
+    // const io = req.app.get('io');
+    // const socket = req.app.get('socket'); // Assume sender's socket is attached to req.app
+    // if (io) {
+    //   const payload = {
+    //     message: "New kanban print created"
+    //   };
+    //   if (socket) {
+    //     socket.broadcast.emit('refresh-kanban-prints', payload);
+    //   } else {
+    //     io.emit('refresh-kanban-prints', payload);
+    //   }
+    // }
     res.status(200).json(updated);
   } catch (error) {
     console.error('Error updating KanbanQA barcode:', error);

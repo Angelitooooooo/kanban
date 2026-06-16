@@ -347,8 +347,14 @@ export default {
 			this.loading = true;
 			try {
 				const res = await api.get('/kanbanqa', { params: { date: this.selectedDate } });
-                console.log('API Response:', res.data);
-				this.rows = res.data || [];
+                console.log('API Response: test', res.data);
+				this.rows = res.data.sort((a, b) => {
+  const createdDiff = new Date(b.created_at) - new Date(a.created_at);
+
+  if (createdDiff !== 0) return createdDiff;
+
+  return new Date(b.updated_at) - new Date(a.updated_at);
+});
 			} catch (e) {
 				this.rows = [];
 			}

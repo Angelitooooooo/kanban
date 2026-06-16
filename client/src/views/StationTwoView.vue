@@ -24,35 +24,7 @@
                   style="margin-right: 10px;"
                 ></v-progress-circular>
                 <div style="display: flex; align-items: center; gap: 12px;">
-                  <v-menu
-                    ref="menu"
-                    v-model="dateMenu"
-                    :close-on-content-click="false"
-                    transition="scale-transition"
-                    offset-y
-                    min-width="auto"
-                  >
-                    <template v-slot:activator="{ on, attrs }">
-                      <v-text-field
-                          v-model="selectedDate"
-                          label="Select Date"
-                          prepend-icon="mdi-calendar"
-                          readonly
-                          dense
-                          outlined
-                          class="date-picker-field"
-                          style="width: 200px; height: 40px; background: white; border-radius: 8px; margin-right: 0;"
-                          v-bind="attrs"
-                          v-on="on"
-                        />
-                    </template>
-                    <v-date-picker
-                      v-model="selectedDate"
-                      @input="dateMenu = false"
-                      color="primary"
-                      class="date-picker-popup"
-                    />
-                  </v-menu>
+
                   <v-autocomplete
                     v-model="selectedBatchId"
                     :items="batchList"
@@ -68,8 +40,9 @@
                     :loading="isFetchingBatches"
                     class="batch-select"
                     style="width: 250px; height: 40px; background: white; border-radius: 8px;"
-                    @change="loadBatchData"
+                    @change="getKanbanDataFromLocalStorage"
                   ></v-autocomplete>
+
                   <v-text-field
                     v-model="manualScanInput"
                     label="Manual Scan Input (temporary)"
@@ -82,24 +55,37 @@
                 </div>
               </div>
 
+
               <div class="kanban-hero-title">Station: {{ station }}</div>
+                
+                  <!-- :disabled="isGenerating || !isPrintAllowed"  -->
+              
               <div class="kanban-hero-meta">
-                <v-chip class="kanban-chip" label>Rows {{ rowRangeLabel }}</v-chip>
-                <!-- <v-btn
+                <v-btn
                   color="success"
-                  class="kanban-chip kanban-chip-success"
+                  class="kanban-chip print-btn"
                   small
-                  @click="createNewBatch"
+                  @click="clearCurrentBatch"
+                      :style="{
+                    opacity: (isGenerating || !isPrintAllowed) ? 0.5 : 1,
+                    cursor: (isGenerating || !isPrintAllowed) ? 'not-allowed' : 'pointer',
+                    background: (isGenerating || !isPrintAllowed) ? '#f5f5f5' : 'linear-gradient(135deg,#ff6b6b,#d32f2f)',
+                    color: (isGenerating || !isPrintAllowed) ? '#aaa' : '#fff',
+                    border: (isGenerating || !isPrintAllowed) ? '1px solid #ccc' : 'none',
+                    boxShadow: (isGenerating || !isPrintAllowed) ? 'none' : '0 4px 12px rgba(255,107,107,0.2)'
+                  }"
                 >
-                  <v-icon left size="18">mdi-plus</v-icon>
-                  New Batch
-                </v-btn> -->
+                  <v-icon left size="18">mdi-content-save</v-icon>
+                  Save Batch
+                </v-btn>
+                <v-chip class="kanban-chip" label>Rows {{ rowRangeLabel }}</v-chip>
+
               <v-btn
                   color="red"
                   class="kanban-chip print-btn"
-                  :disabled="isGenerating || !isPrintAllowed"
                   :loading="isGenerating"
-                  @click="printPage"
+                  :disabled="isGenerating || !isPrintAllowed" 
+                  @click="showPrintDialog = true"
                   :style="{
                     opacity: (isGenerating || !isPrintAllowed) ? 0.5 : 1,
                     cursor: (isGenerating || !isPrintAllowed) ? 'not-allowed' : 'pointer',
@@ -149,7 +135,8 @@
                               </div>
                                <div style="text-align: center; width: 100%;">
                                 <p v-if="column.items[rowIndex] && column.items[rowIndex].qrData" style="width: 100%; max-width: 100px; height: auto; object-fit: contain;">
-                                {{ column.items[rowIndex].qrData.startsWith('RSC') ? column.items[rowIndex].qrData.slice(4) : column.items[rowIndex].qrData.slice(7) }}
+                                <!-- {{ column.items[rowIndex].qrData.startsWith('RSC') ? column.items[rowIndex].qrData.slice(4) : column.items[rowIndex].qrData.slice(7) }} -->
+                                {{  column.items[rowIndex].qrData.slice(12,23) }}
                                 </p>
                                </div>
                               <div style="text-align: center; width: 100%;">
@@ -214,6 +201,62 @@
         </v-card>
       </v-col>
     </v-row>
+
+    <v-dialog v-model="showPrintDialog" max-width="500px" transition="dialog-bottom-transition">
+  <v-card class="elevation-4 rounded-lg">
+    <!-- Header with a Solid Blue Background -->
+    <v-card-title class="headline blue darken-2 white--text d-flex align-center py-4">
+      <v-icon left dark class="mr-2">mdi-printer</v-icon>
+      <span>Confirm Print</span>
+    </v-card-title>
+
+    <!-- Content Area with Enhanced Text Field -->
+    <v-card-text class="pt-6 px-6">
+      <p class="subtitle-1 grey--text text--darken-2 mb-4">
+        Please enter the required quality number before proceeding with the print.
+      </p>
+      
+      <v-text-field 
+        v-model="qualityNumber"
+        label="Input Quality Number"
+        prepend-inner-icon="mdi-file-check-outline"
+        color="blue darken-2"
+        outlined
+        dense
+        hide-details
+        clearable
+        placeholder="e.g., 2 print preview 40(2), leave empty if 1."
+      ></v-text-field>
+    </v-card-text>
+
+    <v-divider></v-divider>
+
+    <!-- Action Buttons -->
+    <v-card-actions class="pa-4 bg-lighten-5">
+      <v-spacer></v-spacer>
+      
+      <v-btn 
+        color="grey darken-1" 
+        text 
+        class="text-capitalize px-4"
+        @click="showPrintDialog = false , qualityNumber = null"
+      >
+        Cancel
+      </v-btn>
+      
+      <v-btn 
+        color="blue darken-2" 
+        depressed
+        dark
+        class="text-capitalize px-6 font-weight-bold"
+        @click="printPageFromDialog"
+      >
+        <v-icon left small>mdi-printer-check</v-icon>
+        Print
+      </v-btn>
+    </v-card-actions>
+  </v-card>
+</v-dialog>
   </v-container>
 </template>
 
@@ -230,9 +273,11 @@ export default {
       currentSet: 0,
       rowPage: 0,
       rowsPerPage: 5,
-      dataSet : 42,
+      dataSet : 40,
       isGenerating: false,
+      showPrintDialog:false,
       delayedLoading: false,
+      qualityNumber: null,
       scanInput: '',
       manualScanInput: '', // For temporary manual scan
       scannedList: [],
@@ -345,25 +390,21 @@ export default {
       return this.$store.state.user?.station || '';
     }
   },
-  mounted() {
-    this.normalizeDataSet();
-    // this.fetchBatches();
-    this.getAllKanbanQA(this.selectedDate);
+  async mounted() {
+    this.dataSet = this.$store.state.user?.data_set || this.dataSet;
     window.addEventListener('keydown', this.onGlobalScannerKeydown);
-    this.generateAllQRCodes().then(() => {
-      this.$nextTick(() => this.generateBarcodesForCurrentSet());
-    });
+    await this.getModel();
+    this.normalizeDataSet();
+    await this.generateAllQRCodes();
+    this.$nextTick(() => this.generateBarcodesForCurrentSet());
     // Listen for socket events to refresh data
-    this.$socket.on('refresh-kanban-prints', () => {
-      // this.fetchBatches();
-        this.getAllKanbanQA(this.selectedDate);
-    });
+    // this.$socket.on('refresh-kanban-prints', () => {
+    //   // this.fetchBatches();
+    //     this.getAllKanbanQA(this.selectedDate);
+    // });
     // Initial KanbanQA fetch for today
   },
     watch: {
-      selectedDate(newDate) {
-        this.getAllKanbanQA(newDate);
-      },
       scanInput(newVal, oldVal) {
         if (newVal && !oldVal) {
           this.delayedLoading = true;
@@ -381,9 +422,446 @@ export default {
     this.clearScannerBufferTimer();
     
     // Remove socket listener
-    this.$socket.off('refresh-kanban-prints');
+    // this.$socket.off('refresh-kanban-prints');
   },
   methods: {
+            async printPageFromDialog() {
+          this.showPrintDialog = false;
+          await this.printPage();
+        },
+    async clearCurrentBatch(){
+      const selectedBatch = this.batchList.find(b => b.id === this.selectedBatchId);
+      if (!selectedBatch) return;
+
+      const result = await Swal.fire({
+        title: 'Clear current batch?',
+        text: `This will reset the current batch "${selectedBatch.name}" `,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, clear it',
+        cancelButtonText: 'No, keep it',
+        focusCancel: true,
+        allowEnterKey: true,
+        confirmButtonColor: '#28a745', // Green
+        cancelButtonColor: '#dc3545'   // Red
+      });
+
+      if (!result.isConfirmed) {
+        return;
+      }
+
+        const response = await api.post('/stationtwo/kanban/history', {
+          data : this.currentData,
+          kanban: selectedBatch.name
+        });
+        console.log('Saved current batch data to history:', response.data);
+      const dataSet = Number(selectedBatch.data_set) || this.dataSet || 40;
+      const emptyData = this.createTemporaryKanbanData(dataSet);
+      this.kanbanData = emptyData;
+      this.rowPage = 0;
+      this.scannedList = [];
+      this.manualScanInput = '';
+
+      const key = `stationTwoKanbanData_${selectedBatch.name}`;
+      try {
+        localStorage.setItem(key, JSON.stringify(emptyData));
+      } catch (err) {
+        console.error(`Failed to clear batch ${selectedBatch.name} in localStorage:`, err);
+      }
+    },
+    async getKanbanDataFromLocalStorage(){
+      try {
+        const selectedBatch = this.batchList.find(b => b.id === this.selectedBatchId);
+        if (!selectedBatch) return;
+        // Persist selection so it survives page reloads
+        localStorage.setItem('stationTwoSelectedBatch', selectedBatch.name);
+        const key = `stationTwoKanbanData_${selectedBatch.name}`;
+        const stored = localStorage.getItem(key);
+        if (!stored) return;
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          this.kanbanData = parsed;
+          
+          // Ensure arrays are properly sized to totalRows
+          const targetSize = Number(selectedBatch.data_set) || this.dataSet || 40;
+          this.kanbanData[0].columns.forEach(col => {
+            const currentSize = col.items.length;
+            if (currentSize < targetSize) {
+              // Expand array to targetSize
+              while (col.items.length < targetSize) {
+                col.items.push({});
+              }
+            }
+          });
+          
+          // Rebuild scannedList from loaded data
+          this.scannedList = [];
+          this.kanbanData.forEach(set => {
+            set.columns.forEach(column => {
+              column.items.forEach(item => {
+                if (item && item.qrData && !this.scannedList.includes(item.qrData)) {
+                  this.scannedList.push(item.qrData);
+                }
+              });
+            });
+          });
+          
+          // Reset row page to first page
+          this.rowPage = 0;
+          this.$forceUpdate();
+        }
+      } catch (err) {
+        console.error('Failed to load kanbanData from localStorage:', err);
+      }
+    },
+    initializeAllBatchesInLocalStorage() {
+      // Initialize temporary data for all batches in batchList
+      this.batchList.forEach(batch => {
+        const key = `stationTwoKanbanData_${batch.name}`;
+        const stored = localStorage.getItem(key);
+        const dataSet = batch.data_set || this.dataSet || 40;
+        
+        if (!stored) {
+          // Create new data if not in localStorage
+          const tempData = this.createTemporaryKanbanData(dataSet);
+          try {
+            localStorage.setItem(key, JSON.stringify(tempData));
+          } catch (err) {
+            console.error(`Failed to initialize batch ${batch.name} in localStorage:`, err);
+          }
+        } else {
+          // Data exists - verify it has the correct size
+          const parsed = JSON.parse(stored);
+          const currentSize = parsed[0]?.columns[0]?.items?.length || 0;
+          
+          if (currentSize < dataSet) {
+            // Expand arrays to match dataSet
+            parsed[0].columns.forEach(col => {
+              while (col.items.length < dataSet) {
+                col.items.push({});
+              }
+            });
+            try {
+              localStorage.setItem(key, JSON.stringify(parsed));
+            } catch (err) {
+              console.error(`Failed to expand batch ${batch.name}:`, err);
+            }
+          }
+        }
+      });
+    },
+    createTemporaryKanbanData(totalRows = 40) {
+      // Create a temporary kanban data structure with empty items
+      return [
+        {
+          columns: [
+            {
+              header: "FSB RH",
+              type: "empty",
+              items: Array(totalRows).fill(null).map(() => ({}))
+            },
+            {
+              header: "FSB LH",
+              type: "highlight",
+              items: Array(totalRows).fill(null).map(() => ({}))
+            },
+            {
+              header: "FSC RH",
+              type: "highlight",
+              items: Array(totalRows).fill(null).map(() => ({}))
+            },
+            {
+              header: "FSC LH",
+              type: "highlight",
+              items: Array(totalRows).fill(null).map(() => ({}))
+            },
+            {
+              header: "RSB RH",
+              type: "empty",
+              items: Array(totalRows).fill(null).map(() => ({}))
+            },
+            {
+              header: "RSB LH",
+              type: "empty",
+              items: Array(totalRows).fill(null).map(() => ({}))
+            },
+            {
+              header: "RSC",
+              type: "empty",
+              items: Array(totalRows).fill(null).map(() => ({}))
+            }
+          ]
+        }
+      ];
+    },
+        async triggerManualScan(rawValue) {
+          let value = String(rawValue || this.manualScanInput || '').trim();
+          if (!value) return;
+          
+          if (rawValue instanceof Event) {
+            value = rawValue.target.value;
+          }
+
+          const scanType = this.detectScanType(value);
+          const currentBatch = this.batchList.find(b => b.id === this.selectedBatchId);
+
+          // Check for duplicate scan
+          if (this.scannedList.includes(value)) {
+            this.playBeep(true);
+            Swal.fire({
+              icon: 'warning',
+              title: 'Duplicate scan',
+              text: 'This scan value has already been entered.',
+              allowEnterKey: true,
+              showConfirmButton: false,
+              timer: 2500
+            });
+            this.manualScanInput = '';
+            return;
+          }
+
+          // Check there is available space in the target column before scanning
+          if (scanType === 'QR') {
+            const headerName = this.extractColumnHeader(value);
+            const columns = (this.currentData && this.currentData.columns) || [];
+            const targetColumn = columns.find(col => col.header === headerName);
+            const hasSpace = targetColumn
+              ? targetColumn.items.some(item => !item || Object.keys(item).length === 0)
+              : false;
+            if (!hasSpace) {
+              this.playBeep(true);
+              Swal.fire({
+                icon: 'error',
+                title: `${headerName || 'Target'} Full`,
+                text: `There is no available space. The "${headerName || 'target'}" column is full.`,
+                allowEnterKey: true,
+                showConfirmButton: false,
+                timer: 2500
+              });
+              this.manualScanInput = '';
+              return;
+            }
+          }
+
+          try {
+            if (scanType === 'QR') {
+              await this.validateQRScan(value, currentBatch);
+              // Place QR item on the board
+              await this.placeQROnBoard(value);
+            } else if (scanType === 'Barcode') {
+              await this.validateBarcodeScan(value);
+            } else {
+              this.playBeep(true);
+              Swal.fire({
+                icon: 'warning',
+                title: 'Unknown scan type',
+                text: 'Unable to determine scan type.',
+                allowEnterKey: true,
+                showConfirmButton: false,
+                timer: 2500
+              });
+              return;
+            }
+
+            // Add to scanned list and save
+            if (!this.scannedList.includes(value)) {
+              this.scannedList.push(value);
+            }
+            this.saveKanbanDataToLocalStorage();
+            this.$forceUpdate();
+          } catch (error) {
+            console.error('Scan error:', error);
+          }
+
+          this.manualScanInput = '';
+        },
+
+        extractColumnHeader(value) {
+          // Parse column header from QR code
+          // Example: "KBA9  F/CRH202604230001C" => "FSC RH"
+          const cleaned = value.replace(/\s+/g, '').replace(/\//g, '').toUpperCase();
+          console.log(cleaned ," test")
+          
+          // Mapping of scanned patterns to column headers
+          const headerMappings = {
+            'FCRH': 'FSC RH',
+            'FCLH': 'FSC LH',
+            'FBRH': 'FSB RH',
+            'FBLH': 'FSB LH',
+            'RSBRH': 'RSB RH',
+            'RBRH': 'RSB RH',
+            'RSBLH': 'RSB LH',
+            'RBLH': 'RSB LH',
+            'RSC': 'RSC',
+            'RC': 'RSC',
+
+          };
+
+          // Try to match patterns in order
+          for (const [pattern, header] of Object.entries(headerMappings)) {
+            if (cleaned.includes(pattern)) {
+              return header;
+            }
+          }
+
+          return null;
+        },
+
+        findFirstEmptySlot(columnIndex) {
+          // Find the first empty slot in the specified column
+          const columns = this.currentData.columns;
+          if (columnIndex < 0 || columnIndex >= columns.length) return -1;
+
+          const column = columns[columnIndex];
+          return column.items.findIndex(item => !item || Object.keys(item).length === 0);
+        },
+
+        async placeQROnBoard(value) {
+          // Extract the column header from the QR code
+          const headerName = this.extractColumnHeader(value);
+          if (!headerName) {
+            console.warn('Could not extract column header from:', value);
+            return;
+          }
+
+          // Find the column index
+          const columns = this.currentData.columns;
+          const columnIndex = columns.findIndex(col => col.header === headerName);
+          
+          if (columnIndex === -1) {
+            console.warn('Column not found:', headerName);
+            return;
+          }
+
+          // Find the first empty slot in this column
+          const itemIndex = this.findFirstEmptySlot(columnIndex);
+          if (itemIndex === -1) {
+            this.playBeep(true);
+            Swal.fire({
+              icon: 'warning',
+              title: 'Column Full',
+              text: `The "${headerName}" column is full.`,
+              allowEnterKey: true,
+              showConfirmButton: false,
+              timer: 2500
+            });
+            return;
+          }
+
+          // Generate QR code
+          const qrCodeData = await this.convertToQRCode(value);
+
+          // Place item on the board
+          this.$set(this.currentData.columns[columnIndex].items, itemIndex, {
+            qrData: value,
+            qrCode: qrCodeData
+          });
+
+          // Auto-navigate pagination to the page containing the newly placed item
+          const targetPage = Math.floor(itemIndex / this.rowsPerPage);
+          if (targetPage !== this.rowPage && targetPage >= 0 && targetPage <= this.maxRowPage) {
+            this.rowPage = targetPage;
+          }
+        },
+
+        async validateQRScan(value, currentBatch) {
+          // Validate model match
+          const valueKanbanModel = value.substring(0, 5);
+          if (currentBatch && currentBatch.name !== valueKanbanModel.trim()) {
+            this.playBeep(true);
+            Swal.fire({
+              icon: 'error',
+              title: 'Model Mismatch',
+              html: `Scanned value does not match selected Model "<strong>${currentBatch.name}</strong>".<br><br>Scanned: "<strong>${valueKanbanModel}</strong>"`,
+              allowEnterKey: true,
+              showConfirmButton: false
+            });
+            throw new Error('Model mismatch');
+          }
+
+          // API validation
+          try {
+            await api.post('/stationtwo/kanban/validate/qr', { kanban: value });
+            this.playBeep(false);
+            Swal.fire({
+              icon: 'success',
+              title: 'Validated',
+              text: 'QR code validated successfully!',
+              timer: 1000,
+              showConfirmButton: false
+            });
+          } catch (error) {
+            this.playBeep(true);
+            Swal.fire({
+              icon: 'error',
+              title: 'Validation Failed',
+              text: error.response?.data?.error || error.message || 'API error',
+              allowEnterKey: true,
+              showConfirmButton: false
+            });
+            throw error;
+          }
+        },
+
+        async validateBarcodeScan(value) {
+          try {
+            const response = await api.post('/stationtwo/kanban/validate/barcode', {
+              barcode: value
+            });
+            console.log('Barcode validation response:', response.data);
+
+            this.playBeep(false);
+            Swal.fire({
+              icon: 'success',
+              title: 'Validated',
+              text: 'Barcode validated successfully!',
+              timer: 1000,
+              showConfirmButton: false
+            });
+          } catch (error) {
+            this.playBeep(true);
+            Swal.fire({
+              icon: 'error',
+              title: 'Validation Failed',
+              text: error.response?.data?.error || error.message || 'API error',
+              allowEnterKey: true,
+              showConfirmButton: false
+            });
+            throw error;
+          }
+        },
+      async convertToQRCode(value) {
+        try {
+          return await QRCode.toDataURL(String(value), {
+            errorCorrectionLevel: 'H',
+            type: 'image/png',
+            quality: 0.92,
+            margin: 1,
+            width: 110
+          });
+        } catch (err) {
+          console.error('Error generating QR code:', err);
+          return null;
+        }
+      },
+    async getModel(){
+            const response = await api.get('/stationtwo/kanban');
+            this.batchList = response.data.map((item,index) => ({
+              id : index + 1, // Assign a unique ID based on index (or use item.id if available)
+              name : item.name
+            }));
+            // Initialize temporary data in localStorage for each batch BEFORE loading
+            this.initializeAllBatchesInLocalStorage();
+            if (this.batchList.length > 0) {
+              // Restore previously selected batch from localStorage, fallback to first batch
+              const savedBatchName = localStorage.getItem('stationTwoSelectedBatch');
+              const savedBatch = savedBatchName
+                ? this.batchList.find(b => b.name === savedBatchName)
+                : null;
+              this.selectedBatchId = savedBatch ? savedBatch.id : this.batchList[0].id;
+              await this.getKanbanDataFromLocalStorage();
+            }
+       },
         async getAllKanbanQA(date) {
           try {
             this.isFetchingBatches = true;
@@ -397,6 +875,8 @@ export default {
               data_set : this.$store.state.user?.data_set || this.dataSet // Use data_set from user state or fallback to local dataSet
             }));
             this.batchList = kanbanQAData; // Assuming you want to populate batchList with this data
+            // Initialize temporary data in localStorage for each batch
+            this.initializeAllBatchesInLocalStorage();
             if (this.batchList.length > 0) {
               this.selectedBatchId = this.batchList[0].id;
               this.loadBatchData()
@@ -411,7 +891,7 @@ export default {
             this.saveErrorLog('getAllKanbanQA', error);
           }
         },
-          triggerManualScan(rawValue) {
+          triggerManualScan1(rawValue) {
             let value = String(rawValue || this.manualScanInput || '').trim();
             if (!value) return;
             if (rawValue instanceof Event) {
@@ -450,40 +930,25 @@ export default {
             if (this.selectedBatchId) {
               const selectedBatch = this.batchList.find(b => b.id === this.selectedBatchId);
               if (selectedBatch) {
-                const trimmedValue = value.startsWith('RSC')
-                  ? value.slice(4)
-                  : value.slice(7);
+                  let batchValue = Object.assign({},{kanban : selectedBatch.name.split(' ')[0] , date : selectedBatch.name.split(' ').find(p => /^\d{8}$/.test(p)) || null  }  );
 
-                  // let batchValue = selectedBatch.name.slice(0,selectedBatch.name.length)
-                  let batchValue = Object.assign({},{kanban : selectedBatch.name.split(' ')[0] , date : selectedBatch.name.split(' ').find(p => /^\d{6}$/.test(p)) || null  }  );
+                    let kanban = value.trim().split(/\s+/)[0];
 
-                  const parts = trimmedValue.split(' ');
-                  let finalTrimmedValue = Object.assign( {},{ kanban : parts[0] , date :  parts.find(p => /^\d{6}$/.test(p)) || null });
+                    // date = 8-digit number
+                    let date = value.match(/\d{8}/)?.[0] || null;
+                    let finalTrimmedValue = Object.assign({},{kanban , date});
+
                   if(batchValue.date != finalTrimmedValue.date || batchValue.kanban != finalTrimmedValue.kanban){
                      this.playBeep(true);
                     Swal.fire({
                       icon: 'error',
                       title: 'Model Mismatch',
-                      html: `QR code does not match selected Model "<strong>${selectedBatch.name}</strong>".<br><br>Scanned: "<strong>${trimmedValue}</strong>"`,
+                      html: `QR code does not match selected Model "<strong>${selectedBatch.name}</strong>".<br><br>Scanned: "<strong>${finalTrimmedValue.kanban}</strong>"`,
                       allowEnterKey: true,
                       showConfirmButton: false
                     });
                     return;
                   }
-
-                  
-                // if (!trimmedValue.startsWith(batchValue)) {
-                //   // ...existing code...
-                //    this.playBeep(true);
-                //   Swal.fire({
-                //     icon: 'error',
-                //     title: 'Model Mismatch',
-                //     html: `QR code does not match selected Model "<strong>${selectedBatch.name}</strong>".<br><br>Scanned: "<strong>${trimmedValue}</strong>"`,
-                //     allowEnterKey: true,
-                //     showConfirmButton: false
-                //   });
-                //   return;
-                // }
               }
             }
             api.patch(`/stationtwo/kanbanqa/validate/qr?value=${encodeURIComponent(value)}&date=${encodeURIComponent(this.selectedDate)})}`)
@@ -518,11 +983,12 @@ export default {
           const selectedBatch = this.batchList.find(b => b.id === this.selectedBatchId);
           const createdAtTimestamps = this.currentData.columns
             .flatMap(column => column.items || [])
-            .map(item => new Date(item?.created_at).getTime())
+            .map(item => new Date(item?.updated_at).getTime())
             .filter(timestamp => !Number.isNaN(timestamp));
           const latestManufacturingDate = createdAtTimestamps.length
             ? new Date(Math.max(...createdAtTimestamps)).toISOString().split('T')[0]
             : new Date().toISOString().split('T')[0];
+
           this.currentData.columns.forEach(column => {
             column.items.forEach(async (item) => {
               if (item && item.qrData) {
@@ -530,7 +996,7 @@ export default {
                   // specification: item.qrData.startsWith('RR Cushion') ? item.qrData.slice(11) : item.qrData.slice(7),
                   specification: selectedBatch.name,
                   qrData: `(${this.$store.state.user.model})(${selectedBatch.name})()(${this.$store.state.user.data_set})()()()()`,
-                  quantity: `${this.$store.state.user.data_set}(${Number(1)})`,
+                  quantity: `${this.$store.state.user.data_set}(${this.qualityNumber || 1})`,
                   model: this.$store.state.user.model,
                   manufacturingDate: latestManufacturingDate,
                 };
@@ -551,6 +1017,8 @@ export default {
             return;
           }
            await print(allItems[0]);
+          this.qualityNumber = null;
+
         },
         saveErrorLog(context, error) {
           // Save error log to backend or local storage
@@ -728,6 +1196,7 @@ export default {
             }
             
             this.$forceUpdate();
+            this.saveKanbanDataToLocalStorage();
           } catch (error) {
             this.saveErrorLog('loadBatchData', error);
             this.error = 'Failed to load batch data';
@@ -736,6 +1205,31 @@ export default {
             }, 3000);
           } finally {
             this.isGenerating = false;
+          }
+        },
+        saveKanbanDataToLocalStorage() {
+          try {
+            const selectedBatch = this.batchList.find(b => b.id === this.selectedBatchId);
+            if (!selectedBatch) return;
+            const key = `stationTwoKanbanData_${selectedBatch.name}`;
+            localStorage.setItem(key, JSON.stringify(this.kanbanData));
+          } catch (err) {
+            console.error('Failed to save kanbanData to localStorage:', err);
+          }
+        },
+        loadKanbanDataFromLocalStorage() {
+          try {
+            const selectedBatch = this.batchList.find(b => b.id === this.selectedBatchId);
+            if (!selectedBatch) return;
+            const key = `stationTwoKanbanData_${selectedBatch.name}`;
+            const stored = localStorage.getItem(key);
+            if (!stored) return;
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              this.kanbanData = parsed;
+            }
+          } catch (err) {
+            console.error('Failed to load kanbanData from localStorage:', err);
           }
         },
         async createNewBatch() {
@@ -768,6 +1262,7 @@ export default {
           }
         },
 		playBeep(isError = false) {
+
 			const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 			const oscillator = audioContext.createOscillator();
 			const gainNode = audioContext.createGain();
@@ -855,493 +1350,7 @@ export default {
         this.scannerBufferTimer = null;
       }
     },
-    async submitScannedValue(rawValue) {
-      const now = Date.now();
-      if (now - this.lastScanTime < this.scanCooldownMs) {
-        return;
-      }
-      this.lastScanTime = now;
 
-      const value = String(rawValue).trim();
-      if (!value) {
-        return;
-      }
-      const scanType = this.detectScanType(value);
-     
-
-      // If it's a Barcode, trim to 5 characters and log
-      if (scanType === 'Barcode') {
-        // Check for duplicate barcode scan
-        if (this.scannedList.includes(value)) {
-           this.playBeep(true);
-          Swal.fire({
-            icon: 'warning',
-            title: 'Duplicate Barcode',
-            text: 'This barcode has already been scanned.',
-              allowEnterKey: true,
-            showConfirmButton: false
-          });
-          return;
-        }
-        
-        const trimmedBarcode = value.substring(1, 5);
-        const Position = value.charAt(value.length - 1);
-        if(Position == "R"){
-          const fsbRhColumn = this.currentData.columns.find(col => col.header === 'FSB RH');
-          if (fsbRhColumn) {
-            const matchedIndex = fsbRhColumn.items.findIndex(
-              item => item && item.qrData && item.qrData.slice(-4) === trimmedBarcode
-            );
-            
-            if (matchedIndex !== -1) {
-              // Generate barcode image for the scanned value
-              const canvas = document.createElement('canvas');
-              canvas.width = 160;
-              canvas.height = 60;
-              try {
-                JsBarcode(canvas, String(value), {
-                  format: 'CODE128',
-                  displayValue: true,
-                  fontSize: 18,
-                  height: 48,
-                  width: 2,
-                  margin: 0,
-                  background: '#fff',
-                  lineColor: '#222',
-                });
-                const scannedBarcodeImg = canvas.toDataURL('image/png');
-                
-                // Update the matched position with the scanned value and barcode image
-                this.$set(fsbRhColumn.items, matchedIndex, {
-                  ...fsbRhColumn.items[matchedIndex],
-                  scannedBarcode: value,
-                  scannedBarcodeImg: scannedBarcodeImg
-                });
-                
-                // Save to database
-                this.sendBarcodeScan({
-                  barcodeValue: value,
-                  batchKey: this.selectedBatchId,
-                  station: this.$store.state.user?.station,
-                  trimmedBarcode: trimmedBarcode,
-                  position: Position
-                });
-                
-                // Add to scanned list to prevent duplicates
-                if (!this.scannedList.includes(value)) {
-                  this.scannedList.push(value);
-                }
-                
-                this.playBeep(false);
-              } catch (err) {
-                await this.saveErrorLog('/station-one', `Error fetching kanban prints: ${err.message}`);
-              }
-            } else {
-              // No matching QR code found, place barcode at row based on last 4 characters
-              // Extract numeric value from trimmedBarcode to determine row index
-              const numericValue = parseInt(trimmedBarcode, 10);
-              const calculatedIndex = isNaN(numericValue) ? 0 : Math.min(numericValue - 1, this.totalRows - 1);
-              
-              // Generate barcode image
-              const canvas = document.createElement('canvas');
-              canvas.width = 160;
-              canvas.height = 60;
-              try {
-                JsBarcode(canvas, String(value), {
-                  format: 'CODE128',
-                  displayValue: true,
-                  fontSize: 18,
-                  height: 48,
-                  width: 2,
-                  margin: 0,
-                  background: '#fff',
-                  lineColor: '#222',
-                });
-                const scannedBarcodeImg = canvas.toDataURL('image/png');
-                
-                // Update the position with barcode only (no QR data)
-                this.$set(fsbRhColumn.items, calculatedIndex, {
-                  ...fsbRhColumn.items[calculatedIndex],
-                  scannedBarcode: value,
-                  scannedBarcodeImg: scannedBarcodeImg
-                });
-                
-                // Save QR scan payload with null value to mark the row position
-                const qrPayload = {
-                  value: null,
-                  row: calculatedIndex + 1,
-                  column: 'FSB RH',
-                  batchKey: this.selectedBatchId,
-                  setIndex: this.currentSet,
-                  rowPage: Math.floor(calculatedIndex / this.rowsPerPage),
-                  station: this.$store.state.user?.station
-                };
-                this.sendQrScan(qrPayload);
-                
-                // Save to database
-                this.sendBarcodeScan({
-                  barcodeValue: value,
-                  batchKey: this.selectedBatchId,
-                  station: this.$store.state.user?.station,
-                  trimmedBarcode: trimmedBarcode,
-                  position: Position,
-                  row: calculatedIndex + 1,
-                  rowPage: Math.floor(calculatedIndex / this.rowsPerPage)
-                });
-                
-                // Add to scanned list to prevent duplicates
-                if (!this.scannedList.includes(value)) {
-                  this.scannedList.push(value);
-                }
-                
-                this.playBeep(false);
-              } catch (err) {
-                 this.playBeep(true);
-                await this.saveErrorLog('/station-one', `Error fetching kanban prints: ${err.message}`);
-              }
-            }
-          }
-        } else if(Position == "L"){
-          const fsbLhColumn = this.currentData.columns.find(col => col.header === 'FSB LH');
-          if (fsbLhColumn) {
-            const matchedIndex = fsbLhColumn.items.findIndex(
-              item => item && item.qrData && item.qrData.slice(-4) === trimmedBarcode
-            );
-            
-            if (matchedIndex !== -1) {
-              // Generate barcode image for the scanned value
-              const canvas = document.createElement('canvas');
-              canvas.width = 160;
-              canvas.height = 60;
-              try {
-                JsBarcode(canvas, String(value), {
-                  format: 'CODE128',
-                  displayValue: true,
-                  fontSize: 18,
-                  height: 48,
-                  width: 2,
-                  margin: 0,
-                  background: '#fff',
-                  lineColor: '#222',
-                });
-                const scannedBarcodeImg = canvas.toDataURL('image/png');
-                
-                // Update the matched position with the scanned value and barcode image
-                this.$set(fsbLhColumn.items, matchedIndex, {
-                  ...fsbLhColumn.items[matchedIndex],
-                  scannedBarcode: value,
-                  scannedBarcodeImg: scannedBarcodeImg
-                });
-                
-                // Save to database
-                this.sendBarcodeScan({
-                  barcodeValue: value,
-                  batchKey: this.selectedBatchId,
-                  station: this.$store.state.user?.station,
-                  trimmedBarcode: trimmedBarcode,
-                  position: Position
-                });
-                
-                // Add to scanned list to prevent duplicates
-                if (!this.scannedList.includes(value)) {
-                  this.scannedList.push(value);
-                }
-                
-                this.playBeep(false);
-              } catch (err) {
-                 this.playBeep(true);
-                await this.saveErrorLog('/station-one', `Error generating barcode image: ${err.message}`);
-              }
-            } else {
-              // No matching QR code found, place barcode at row based on last 4 characters
-              // Extract numeric value from trimmedBarcode to determine row index
-              const numericValue = parseInt(trimmedBarcode, 10);
-              const calculatedIndex = isNaN(numericValue) ? 0 : Math.min(numericValue - 1, this.totalRows - 1);
-              
-              // Generate barcode image
-              const canvas = document.createElement('canvas');
-              canvas.width = 160;
-              canvas.height = 60;
-              try {
-                JsBarcode(canvas, String(value), {
-                  format: 'CODE128',
-                  displayValue: true,
-                  fontSize: 18,
-                  height: 48,
-                  width: 2,
-                  margin: 0,
-                  background: '#fff',
-                  lineColor: '#222',
-                });
-                const scannedBarcodeImg = canvas.toDataURL('image/png');
-                
-                // Update the position with barcode only (no QR data)
-                this.$set(fsbLhColumn.items, calculatedIndex, {
-                  ...fsbLhColumn.items[calculatedIndex],
-                  scannedBarcode: value,
-                  scannedBarcodeImg: scannedBarcodeImg
-                });
-                
-                // Save QR scan payload with null value to mark the row position
-                const qrPayload = {
-                  value: null,
-                  row: calculatedIndex + 1,
-                  column: 'FSB LH',
-                  batchKey: this.selectedBatchId,
-                  setIndex: this.currentSet,
-                  rowPage: Math.floor(calculatedIndex / this.rowsPerPage),
-                  station: this.$store.state.user?.station
-                };
-                this.sendQrScan(qrPayload);
-                
-                // Save to database
-                this.sendBarcodeScan({
-                  barcodeValue: value,
-                  batchKey: this.selectedBatchId,
-                  station: this.$store.state.user?.station,
-                  trimmedBarcode: trimmedBarcode,
-                  position: Position,
-                  row: calculatedIndex + 1,
-                  rowPage: Math.floor(calculatedIndex / this.rowsPerPage)
-                });
-                
-                // Add to scanned list to prevent duplicates
-                if (!this.scannedList.includes(value)) {
-                  this.scannedList.push(value);
-                }
-                
-                this.playBeep(false);
-              } catch (err) {
-                await this.saveErrorLog('/station-one', `Error fetching kanban prints: ${err.message}`);
-              }
-            }
-          }
-        } else {
-           this.playBeep(true);
-          Swal.fire({
-            icon: 'warning',
-            title: 'Barcode Position Unknown',
-            text: 'The scanned barcode does not indicate Left or Right position. Please check the barcode format.',
-            allowEnterKey: true,
-            showConfirmButton: false
-          });
-        }
-        return;
-      }
-
-      // If it's Unknown, show error and return
-      if (scanType === 'Unknown') {
-         this.playBeep(true);
-        Swal.fire({
-          icon: 'error',
-          title: 'Invalid Scan',
-          text: 'Unable to identify the scanned code. Please scan a valid QR/Barcode.',
-          allowEnterKey: true,
-          showConfirmButton: false
-        });
-        return;
-      }
-
-      // Check if scanned value matches selected batch name
-      if (this.selectedBatchId) {
-        const selectedBatch = this.batchList.find(b => b.id === this.selectedBatchId);
-        if (selectedBatch) {
-          const trimmedValue = value.startsWith('RSC')
-            ? value.slice(4)
-            : value.slice(7);
-
-            let batchValue = selectedBatch.name.slice(0,selectedBatch.name.length -1)
-          if (!trimmedValue.startsWith(batchValue)) {
-            // ...existing code...
-             this.playBeep(true);
-            Swal.fire({
-              icon: 'error',
-              title: 'Model Mismatch',
-              html: `QR code does not match selected Model "<strong>${selectedBatch.name}</strong>".<br><br>Scanned: "<strong>${trimmedValue}</strong>"`,
-              allowEnterKey: true,
-              showConfirmButton: false
-            });
-            return;
-          }
-        }
-      }
-
-      const getMatchKey = (text) => {
-        const parts = String(text || '').trim().split(/\s+/);
-        return parts.length ? parts[parts.length - 1] : '';
-      };
-
-      // Try to match with column headers - check if scanned value starts with column header
-      let column = null;
-      for (const col of this.currentData.columns) {
-        const normalizedHeader = col.header.replace(/\s+/g, '').toUpperCase();
-        const normalizedValue = value.replace(/\s+/g, '').toUpperCase();
-        
-        // Check if the scanned value starts with the column header
-        if (normalizedValue.startsWith(normalizedHeader) || normalizedHeader.startsWith(normalizedValue.substring(0, normalizedHeader.length))) {
-          column = col;
-          // ...existing code...
-          break;
-        }
-      }
-
-      if (!column) {
-        // ...existing code...
-        this.error = `QR code '${value}' does not match any column header.`;
-        setTimeout(() => {
-          this.error = '';
-        }, 1500);
-        return;
-      }
-
-      const matchKey = getMatchKey(value);
-      // ...existing code...
-      if (!matchKey) {
-        // ...existing code...
-        this.error = `QR code '${value}' does not have a valid match key.`;
-        setTimeout(() => {
-          this.error = '';
-        }, 1500);
-        return;
-      }
-
-      let rowIndex = -1;
-      this.currentData.columns.forEach(col => {
-        col.items.forEach((item, idx) => {
-          if (item.qrData && getMatchKey(item.qrData) === matchKey) {
-            if (rowIndex === -1 || idx < rowIndex) rowIndex = idx;
-          }
-        });
-      });
-
-      if (rowIndex === -1) {
-        const maxLen = Math.max(...this.currentData.columns.map(col => col.items.length));
-        const pageStart = this.rowPage * this.rowsPerPage;
-        const pageEnd = Math.min(pageStart + this.rowsPerPage, maxLen);
-        let emptyRowIndex = -1;
-
-        for (let i = pageStart; i < pageEnd; i++) {
-          const isRowEmpty = this.currentData.columns.every(col => !col.items[i] || !col.items[i].qrData);
-          if (isRowEmpty) {
-            emptyRowIndex = i;
-            break;
-          }
-        }
-
-        if (emptyRowIndex === -1) {
-          for (let i = 0; i < maxLen; i++) {
-            const isRowEmpty = this.currentData.columns.every(col => !col.items[i] || !col.items[i].qrData);
-            if (isRowEmpty) {
-              emptyRowIndex = i;
-              break;
-            }
-          }
-        }
-
-        if (emptyRowIndex === -1) {
-          const allRowsFilled = this.currentData.columns.every(col => {
-            return col.items.length >= this.totalRows && 
-                   col.items.slice(0, this.totalRows).every(item => item && item.qrData);
-          });
-          
-          if (allRowsFilled) {
-             this.playBeep(true);
-            Swal.fire({
-              icon: 'warning',
-              title: 'Batch Full',
-              text: `This batch is full (${this.totalRows}/${this.totalRows}). Cannot add more QR codes.`,
-              allowEnterKey: true,
-              showConfirmButton: false
-            });
-          } else {
-             this.playBeep(true);
-            Swal.fire({
-              icon: 'warning',
-              title: 'No Empty Slots',
-              text: 'No empty slots available.',
-              allowEnterKey: true,
-              showConfirmButton: false
-            });
-          }
-          return;
-        }
-        rowIndex = emptyRowIndex;
-      }
-
-      this.rowPage = Math.floor(rowIndex / this.rowsPerPage);
-      // ...existing code...
-
-      if (!this.scannedList.includes(value)) {
-        this.scannedList.push(value);
-      } else {
-         this.playBeep(true);
-        // ...existing code...
-        Swal.fire({
-          icon: 'warning',
-          title: 'Duplicate QR Code',
-          text: 'This QR code has already been scanned.',
-          allowEnterKey: true,
-          showConfirmButton: false
-        });
-        return;
-      }
-
-      if (!column.items[rowIndex] || !column.items[rowIndex].qrData) {
-        Promise.all([
-          QRCode.toDataURL(String(value), {
-            errorCorrectionLevel: 'H',
-            type: 'image/png',
-            quality: 0.92,
-            margin: 1,
-            width: 110
-          }),
-          new Promise((resolve) => {
-            const canvas = document.createElement('canvas');
-            canvas.width = 160;
-            canvas.height = 60;
-            try {
-              JsBarcode(canvas, String(value), {
-                format: 'CODE128',
-                displayValue: true,
-                fontSize: 18,
-                height: 48,
-                width: 2,
-                margin: 0,
-                background: '#fff',
-                lineColor: '#222',
-              });
-              resolve(canvas.toDataURL('image/png'));
-            } catch (err) {
-              console.error('Error generating barcode:', err);
-              resolve(null);
-            }
-          })
-        ]).then(([qrCode, barcodeImg]) => {
-          const existingItem = column.items[rowIndex] || {};
-          this.$set(column.items, rowIndex, {
-            ...existingItem,
-            qrData: value,
-            qrCode,
-            barcodeImg
-          });
-
-          const payload = {
-            value,
-            row: rowIndex + 1,
-            column: column.header,
-            batchKey: this.selectedBatchId,
-            setIndex: this.currentSet,
-            rowPage: this.rowPage,
-            station: this.$store.state.user?.station
-          };
-          
-          this.sendQrScan(payload);
-          
-          // ...existing code...
-          this.playBeep(false);
-        });
-      }
-    },
     startScan() {
       this.error = '';
     },
@@ -1437,22 +1446,20 @@ export default {
         this.$forceUpdate();
       });
     },
+ 
     detectScanType(value) {
-      const upperValue = value.toUpperCase();
-      const isKanbanMatch = this.kanbanColumns.some((item) => {
-        const upperItem = String(item).toUpperCase();
-        return upperValue.startsWith(upperItem) || upperValue.includes(upperItem);
-      });
+      const cleaned = String(value).replace(/\s+/g, '').replace(/\//g, '').toUpperCase();
+      const qrPatterns = ['FCRH', 'FCLH', 'FBRH', 'FBLH', 'RSBRH', 'RBRH', 'RSBLH', 'RBLH', 'RSC'];
 
-      if (upperValue.startsWith('QR:')) {
+      if (qrPatterns.some(pattern => cleaned.includes(pattern))) {
         return 'QR';
       }
 
-      if (isKanbanMatch) {
+      if (String(value).toUpperCase().startsWith('QR:')) {
         return 'QR';
       }
 
-      if (upperValue.startsWith('BAR:') || upperValue.startsWith('BC:')) {
+      if (String(value).toUpperCase().startsWith('BAR:') || String(value).toUpperCase().startsWith('BC:')) {
         return 'Barcode';
       }
 
@@ -1464,8 +1471,9 @@ export default {
         return 'Barcode';
       }
 
-      if (/^[A-Z0-9\-.$/+% ]{4,48}$/i.test(value)) {
-        return 'Barcode';
+      // Default to QR for kanban-like model codes containing letters and digits
+      if (/^[A-Z0-9\-.$/+%]+$/i.test(cleaned) && cleaned.length >= 12) {
+        return 'QR';
       }
 
       return 'Unknown';
@@ -1498,7 +1506,7 @@ export default {
 .batch-select >>> .v-input__control{min-height:38px;}.batch-select >>> .v-input__slot{padding:0 12px !important;}
 .batch-select >>> .v-select__selection{font-weight:700;font-size:14px;color:#1976d2;}
 .kanban-chip:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(25,118,210,0.4) !important;}
-.kanban-chip-success{background:linear-gradient(135deg,#4caf50,#388e3c) !important;}
+.kanban-chip-success{background:linear-gradient(135deg,#f41602,#e83e05) !important;}
 .kanban-chip-success:hover{box-shadow:0 8px 24px rgba(76,175,80,0.4) !important;}
 .pagination-pill{display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:12px;background:linear-gradient(135deg,#ffffff,#f8fafc);border:1px solid rgba(25,118,210,0.2);box-shadow:0 6px 20px rgba(25,118,210,0.15);}
 .pagination-btn{width:40px;height:40px;border-radius:50%;border:none;background:linear-gradient(135deg,#1976d2,#1565c0);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform 0.2s,box-shadow 0.2s;box-shadow:0 4px 12px rgba(25,118,210,0.3);}

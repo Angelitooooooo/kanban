@@ -321,9 +321,9 @@ export default {
       this.$nextTick(() => this.generateBarcodesForCurrentSet());
     });
     // Listen for socket events to refresh data
-    this.$socket.on('refresh-kanban-prints', () => {
-      this.fetchBatches();
-    });
+    // this.$socket.on('refresh-kanban-prints', () => {
+    //   this.fetchBatches();
+    // });
     console.log('KanbanVuetifyView mounted with station:', this.kanbanData);
   },
   beforeDestroy() {
@@ -331,7 +331,7 @@ export default {
     this.clearScannerBufferTimer();
     
     // Remove socket listener
-    this.$socket.off('refresh-kanban-prints');
+    // this.$socket.off('refresh-kanban-prints');
   },
   methods: {
           triggerManualScan() {

@@ -1,4 +1,98 @@
 const { db } = require("../db");
+const getKabanHistoryDate = async (req, res) => {
+
+      let  { kanban } = req.query;
+      console.log("test", kanban);
+  try {
+    
+        const result = await db('kanban_qa')
+        .select('kanban_set')
+        .max('updated_at as updated_at')
+        .where('kanban', 'like', `%${kanban}%`)
+        .whereNotNull('kanban_set')
+        .groupBy('kanban_set')
+         .orderBy('updated_at', 'desc');
+        
+      res.status(200).json(result.map(r => ({
+        kanban_set: r.kanban_set,
+        updated_at: new Date(r.updated_at).toISOString().split('T')[0]
+      })));
+
+
+  } catch (error) {
+        console.error("Error fetching kanbans:", error);
+    res.status(500).json({ error: "Failed to fetch kanbans", details: error.message });
+  }
+
+
+
+
+}
+
+
+const saveKabanHistory = async (req, res) => {
+    try {
+      let  { data,kanban } = req.body;
+
+
+            let kanban_set = await db('kanban_qa')
+            .select('Kanban_set')
+            .where(
+            'kanban_set',
+            db('kanban_qa')
+            .max('kanban_set')
+            .where('kanban', 'like', `%${kanban}%`)
+            ).first();
+
+            if(!kanban_set){
+              console.log("No existing kanban_set found for kanban:", kanban);
+              kanban_set = { Kanban_set: 0 };
+            }
+
+      for (const column of data.columns) {
+        for (const item of column.items) {
+          if(Object.keys(item).length != 0){
+            const result = await db('Kanban_qa')
+              .select('id')
+              .where('qr_kanban', item.qrData)
+              .first();
+              if(result) {
+                await db('Kanban_qa')                .where('id', result.id)
+                .update({kanban_set: kanban_set.Kanban_set+1 , updated_at: new Date()});
+              }
+              console.log(result);
+          }
+        }
+      }
+      res.status(200).json(data);
+
+  } catch (error) {
+    console.error("Error fetching kanbans:", error);
+    res.status(500).json({ error: "Failed to fetch kanbans", details: error.message });
+  }
+
+  
+
+}
+
+
+const getKabanHistory = async (req, res) => {
+    const { set,kanban } = req.query;
+    console.log("Fetching history for kanban_set:", set);
+
+  try {
+      const kanbanSetData = await db('kanban_qa')
+          .where('kanban_set', set)
+          .where('kanban', 'like', `%${kanban}%`)
+          .select('*');
+        res.status(200).json(kanbanSetData);
+
+  } catch (error) {
+    console.error("Error fetching kanbans:", error);
+    res.status(500).json({ error: "Failed to fetch kanbans", details: error.message });
+  }
+};
+
 
 // Get all kanbans (batches) - filtered by station if provided
 const getAllKanbans = async (req, res) => {
@@ -598,5 +692,8 @@ module.exports = {
   getAllKanbanPrints,
   getKanbanPrintsuserID,
   createKanbanPrint,
-  updateKanbanPrint
+  updateKanbanPrint,
+  getKabanHistory,
+  saveKabanHistory,
+  getKabanHistoryDate
 };

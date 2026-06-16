@@ -303,8 +303,8 @@ export default {
       this.drawer = false;
     },
     goToKanbans() {
-      if (this.$route.path !== '/station-two') {
-        this.$router.push('/station-two');
+      if (this.$route.path !== '/history') {
+        this.$router.push('/history');
       }
       this.drawer = false;
     },

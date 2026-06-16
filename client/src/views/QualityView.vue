@@ -342,26 +342,99 @@ export default {
                 }
                 return;
             }
+			if(value.length == 24){
+				console.log(value ,"scanned QR code")
+				//checking if the scanned QR code contains kanban that matches any existing row, if not show error and prevent adding QR code
+				if(lastIndex === -1){
+					this.playBeep(true);
+						Swal.fire({
+							title: 'Error',
+							text: 'No kanban available to assign QR code. Please scan kanban detail first.',
+							icon: 'error',
+							timer: 4000,
+							timerProgressBar: true,
+							showConfirmButton: false
+						});
+					return;
+				}
+				
+				// step 1: get F/CRH
+			let part = value.slice(6, 11);
+
+			// step 2: insert space between C and R
+			let newVal = part.slice(0, 3) + " " + part.slice(3);
+			newVal = newVal.replace("/", "S");
+
+			if (this.$store.state.user?.condition.some((col) => col.startsWith(newVal))) {
+				if(this.rows[lastIndex].barcode && this.rows[lastIndex].barcode !== ''){
+						this.playBeep(true);
+							Swal.fire({
+								title: 'Error',
+								text: 'The last kanban already has a barcode. Please scan a new kanban detail.',
+								icon: 'error',
+								timer: 4000,
+								timerProgressBar: true,
+								showConfirmButton: false
+							});
+						return;
+					}
+			}
+				let isDuplicate = this.rows.some(item => item.qr === value);
+				if(isDuplicate){
+					this.playBeep(true);
+						Swal.fire({
+							title: 'Duplicate QR',
+							text: 'This QR code already exists in another row.',
+							icon: 'error',
+							timer: 4000,
+							timerProgressBar: true,
+							showConfirmButton: false
+						});
+					return;
+				}
+			if(this.rows[lastIndex].kanban.startsWith(newVal) && this.rows[lastIndex].kanban.includes(value.slice(0, 6).trim())  ){
+				this.rows[lastIndex].qr = value;
+
+				if (this.$store.state.user?.condition.some((col) => col.startsWith(newVal))) {
+					this.rows[lastIndex].status = 'Unverified';
+					this.playBeep(false);
+				} else {
+					this.rows[lastIndex].status = 'Verified';
+					this.playBeep(false);
+				}
+			}else{
+				
+				if(newVal.startsWith("RSC") && (this.rows[lastIndex].kanban.startsWith("RR C") || this.rows[lastIndex].kanban.startsWith("RSC"))) {
+					const kanban = this.getCode(value);
+					const qr_kanban = this.getCode(this.rows[lastIndex].kanban);
+
+					if(kanban === qr_kanban){	
+						this.rows[lastIndex].status = 'Verified';
+						this.playBeep(false);
+					}else{
+						this.rows[lastIndex].status = 'QR Code does not match';
+						this.playBeep(true);
+					}
+				} else {
+					this.rows[lastIndex].status = 'QR Code does not match';
+					this.playBeep(true);
+				}
+			}
+			this.rows[lastIndex].qr = value;
+			await api.put(`/kanbanqa/${this.rows[lastIndex].id}/qr`, {
+					qr_kanban: value,
+					status : this.rows[lastIndex].status
+				});
+
+			}
 
 			// update barcode for existing row
 			// add barcode here
 			// C0006631331L
-			if (value.startsWith('C')) {
-				// Duplicate QR+Kanban check: error if any row (except target) has both same QR and Kanban
-				// const duplicateQRKanbanRow = this.rows.find(
-				// 	r => r.qr && r.barcode && r.barcode === value && r.kanban === (this.lastAddedRowId !== null ? (this.rows.find(row => row.id === this.lastAddedRowId)?.kanban) : null)
-				// );
+			if (value.startsWith('C') && value.length < 13) {
 
 				const LastItemUpdated = this.rows.reduce((max, item) => item.id > max.id ? item : max);
-				const parts = LastItemUpdated.qr.replace(/^FSB LH\s+/, '').split(' ');
-
-				let finalTrimmedValue = Object.assign( {},{ kanban : parts[0] , date :  parts.find(p => /^\d{6}$/.test(p)) || null });
-
-				const results = this.rows.filter(item =>
-					item.qr.includes(finalTrimmedValue.kanban) &&
-					item.qr.includes(finalTrimmedValue.date) &&
-					item.id !== LastItemUpdated.id
-				);
+				const results = this.rows.filter(item => item.qr.includes(LastItemUpdated.qr.slice(0, -5)))
 
 				const isDuplicate = results.some(item => item.barcode === value);
 				if (isDuplicate) {

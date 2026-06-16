@@ -1,6 +1,99 @@
 const { db } = require('../db');
 
 // GET all KanbanQA data, optionally filter by date
+const ValidateKanbanBarcode = async (req, res) => {
+	try {
+		const { barcode } = req.body;
+		if(!barcode) {
+			return res.status(400).json({ error: 'Barcode value is required.' });
+		}
+		const result = await db('Kanban_qa')
+			.select('*')
+			.where('barcode', barcode)
+			.first();
+			console.log(result)
+			if(result.isValidatedBarcode == 1) {
+				return res.status(400).json({ error: 'Barcode is already validated.' });
+			}
+			else{
+				const updated = await db('Kanban_qa')
+				.where({ id: result.id })
+				.update({ isValidatedBarcode: 1 });
+				result.isValidatedBarcode = 1; // Update the result object to reflect the change
+				res.status(200).json(result);
+			}
+		
+	} catch (error) {
+		console.error('Error validating Kanban Barcode:', error);
+		res.status(500).json({ error: 'Failed to validate Kanban Barcode', details: error.message });
+		
+	}
+
+}
+
+const ValidateKanbanQR = async (req, res) => {
+	try {
+		const { kanban } = req.body;
+		if(!kanban) {
+			return res.status(400).json({ error: 'Kanban value is required.' });
+		}
+		const result = await db('Kanban_qa')
+			.select('*')
+			.where('qr_kanban', kanban)
+			.first();
+			if(result.isValidatedQR == 1) {
+				return res.status(400).json({ error: 'QR code is already validated.' });
+			}else{
+				const updated = await db('Kanban_qa')
+				.where({ id: result.id })
+				.update({ isValidatedQR: 1 });
+				res.status(200).json(updated);
+			}
+	} catch (error) {
+		console.error('Error validating Kanban QR:', error);
+		res.status(500).json({ error: 'Failed to validate Kanban QR', details: error.message });
+	}
+}
+
+
+const GetKanban = async (req, res) => {
+	try {
+const results = await db('Kanban_qa')
+  .select(
+    db.raw("DISTINCT TRIM(LEFT(TRIM(qr_kanban), 5)) AS name")
+  )
+  .whereNotNull('qr_kanban')
+  .whereRaw("TRIM(qr_kanban) != ''")
+  .whereRaw("qr_kanban NOT LIKE 'FSB%'")
+  .whereRaw("qr_kanban NOT LIKE 'FSC%'")
+  .whereRaw("qr_kanban NOT LIKE 'RSB%'")
+  .whereRaw("qr_kanban NOT LIKE 'RSC%'")
+  .whereRaw("TRIM(LEFT(qr_kanban, 5)) != 'RR Cu'")
+  .havingRaw("name IS NOT NULL AND name != ''")
+  .orderBy('name', 'asc');
+		
+
+		// const results = await db('Kanban_qa')
+		// 	.select(
+		// 		db.raw(
+		// 			"DISTINCT SUBSTRING_INDEX(SUBSTRING_INDEX(qr_kanban, ' ', 3), ' ', -1) AS name"  
+		// 		)
+		// 	)
+		// 	.where(function () {
+		// 		this.where('isValidatedQR', 1)
+		// 			.orWhere('isValidatedBarcode', 1);
+		// 	})
+		// 	.whereRaw("qr_kanban REGEXP '^[^ ]+ [^ ]+ [^ ]+ [^ ]+$'")
+		// 	.orderBy('name', 'asc');
+
+			res.status(200).json(results);
+	} catch (error) {
+		console.error('Error fetching all Kanban_qa:', error);
+		res.status(500).json({ error: 'Failed to fetch Kanban_qa data', details: error.message });
+	}
+}
+
+
 const getAllKanbanQA = async (req, res) => {
 	try {
 		const { date } = req.query;
@@ -9,6 +102,7 @@ const getAllKanbanQA = async (req, res) => {
 			query = query.whereRaw('DATE(created_at) = ?', [date]);
 		}
 		const results = await query.orderBy('id', 'asc');
+		console.log(results)
 		
 		// Remove duplicate kanban entries based on last 4 characters
 		// const uniqueResults = [];
@@ -24,39 +118,60 @@ const getAllKanbanQA = async (req, res) => {
 		// const kanbanList = uniqueResults.map(item => ({ id: item.id, name: item.kanban ? item.kanban.slice(-4) : '' }));
 
 
-				const result = Object.values(
-				results.reduce((acc, item) => {
-					if (!item.qr_kanban) return acc; 
+				// const result = Object.values(
+				// results.reduce((acc, item) => {
+				// 	if (!item.qr_kanban) return acc; 
 					
-					const match = item.qr_kanban.match(
-					/^(.*?)(?:\s(000[1-9]|00[1-3][0-9]|0040))?(?:\s(\d{6}))?$/
-					);
+				// 	const match = item.qr_kanban.match(
+				// 	/^(.*?)(?:\s(000[1-9]|00[1-3][0-9]|0040))?(?:\s(\d{6}))?$/
+				// 	);
 
-					const base = match?.[1]?.trim();
-					const date = match?.[3] || null;
+				// 	const base = match?.[1]?.trim();
+				// 	const date = match?.[3] || null;
 
-					if (!base) return acc;
+				// 	if (!base) return acc;
 
-					const key = `${base}-${date}`;
+				// 	const key = `${base}-${date}`;
 
-					if (!acc[key]) {
-					acc[key] = item;
-					} else {
-					// keep latest updated_at
-					if (new Date(item.updated_at) > new Date(acc[key].updated_at)) {
-						acc[key] = item;
+				// 	if (!acc[key]) {
+				// 	acc[key] = item;
+				// 	} else {
+				// 	// keep latest updated_at
+				// 	if (new Date(item.updated_at) > new Date(acc[key].updated_at)) {
+				// 		acc[key] = item;
+				// 	}
+				// 	}
+
+				// 	return acc;
+				// }, {})
+				// );
+				let map = new Map();
+				results.forEach(item => {
+
+					
+					if (!item.qr_kanban || typeof item.qr_kanban !== 'string') return;
+
+					let match = item.qr_kanban.match(/^(\w+)\s+.*?(\d{8})/);
+
+					if (!match) return;
+
+					let key = `${match[1]} ${match[2]}`;
+
+					if (!map.has(key)) {
+						map.set(key, {
+						...item,
+						qr_kanban: key
+						});
 					}
-					}
+				});
 
-					return acc;
-				}, {})
-				);
+				let result = Array.from(map.values());
 
 		const kanbanList = result.map(item => {
 			const kanbanSuffix = item.kanban ? item.kanban.slice(-4) : '';
 
 			// get 6-digit date at the end (if exists)
-			const dateMatch = item.qr_kanban.match(/(\d{6})$/);
+			const dateMatch = item.qr_kanban.match(/(\d{8})$/);
 			const date = dateMatch ? dateMatch[1] : '';
 
 			return {
@@ -97,12 +212,19 @@ const getKanbanQAByDateAndKanban = async (req, res) => {
 			.orWhere('isValidatedBarcode', 1);
 		})
 		.orderBy('id', 'asc');
+
+		console.log(results)
 		const formatted = results.map(item => {
-		// remove last 6-digit date first
-			const withoutDate = item.qr_kanban?.replace(/\s\d{6}$/, '') || '';
+		// remove last 8-digit date first
+
+			const rowNumber = item.qr_kanban.slice(-5).replace("C", "");      // "0002C"
 
 			// extract sequence (0001–0040)
-			const seqMatch = withoutDate.match(/\b(000[1-9]|00[1-3][0-9]|0040)\b/);
+			const seqMatch = rowNumber.match(/\b(000[1-9]|00[1-3][0-9]|0040)\b/);
+
+			let match = item.qr_kanban.match(/^(\w+)\s+.*?(\d{4})\D*$/);
+
+			let result = match ? `${match[1]}  ${match[2]}` : null;
 
 			return {
 				columnName: item.kanban
@@ -113,7 +235,7 @@ const getKanbanQAByDateAndKanban = async (req, res) => {
 
 				row: parseInt(seqMatch?.[0] || 0, 10),
 
-				value: item.isValidatedQR == 1 ? item.qr_kanban || '' : '',
+				value: item.isValidatedQR == 1 ? result || '' : '',
 				barcode: item.isValidatedBarcode == 1 ? item.barcode || '' : '',
 				created_at: item.created_at
 			};
@@ -214,7 +336,10 @@ module.exports = {
 	getAllKanbanQA,
 	getKanbanQAByDateAndKanban,
 	updateKanbanQAValidatedQR,
-    updateKanbanQAValidatedBarcode
+    updateKanbanQAValidatedBarcode,
+	GetKanban,
+	ValidateKanbanQR,
+	ValidateKanbanBarcode
 };
 
 

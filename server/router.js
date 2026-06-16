@@ -15,7 +15,10 @@ const {
   getAllKanbanPrints,
   getKanbanPrintsuserID,
   createKanbanPrint,
-  updateKanbanPrint
+  updateKanbanPrint,
+  getKabanHistory,
+  saveKabanHistory,
+  getKabanHistoryDate
 } = require("./controllers/kanbanController");
 const { getKanbanQAByDate, createKanbanQA, updateKanbanQAById, updateBarcodeById, updateKanbanQAAllFieldsById, deleteKanbanQAById } = require("./controllers/kanbanQa");
 const {
@@ -25,7 +28,7 @@ const {
   deleteErrorLog,
   clearAllErrorLogs
 } = require("./controllers/errorLogController");
-const { getAllKanbanQA, getKanbanQAByDateAndKanban , updateKanbanQAValidatedQR,updateKanbanQAValidatedBarcode } = require('./controllers/StationTwoController');
+const { ValidateKanbanBarcode ,ValidateKanbanQR , getAllKanbanQA, getKanbanQAByDateAndKanban , updateKanbanQAValidatedQR,updateKanbanQAValidatedBarcode,GetKanban } = require('./controllers/StationTwoController');
 
 const router = express.Router();
 
@@ -87,4 +90,14 @@ router.get('/stationtwo/kanbanqa', getAllKanbanQA);
 router.get('/stationtwo/kanbanqa/filter', getKanbanQAByDateAndKanban);
 router.patch('/stationtwo/kanbanqa/validate/qr', updateKanbanQAValidatedQR);
 router.patch('/stationtwo/kanbanqa/validate/barcode', updateKanbanQAValidatedBarcode);
+router.get('/stationtwo/kanban', GetKanban);
+router.post('/stationtwo/kanban/validate/qr', ValidateKanbanQR);
+router.post('/stationtwo/kanban/validate/barcode', ValidateKanbanBarcode);
+router.get('/stationtwo/kanban/validate/barcode', ValidateKanbanBarcode);
+router.get('/stationtwo/kanban/history', getKabanHistory);
+router.post('/stationtwo/kanban/history', saveKabanHistory);
+router.get('/stationtwo/kanban/history/date', getKabanHistoryDate);
+
+
+
 module.exports = router;

@@ -76,6 +76,11 @@ const routes = [
     name: 'quality-admin',
     component: () => import(/* webpackChunkName: "station-two" */ '../views/QualityAssuranceView.vue')
     },
+        {
+    path: '/history',
+    name: 'history',
+    component: () => import(/* webpackChunkName: "station-two" */ '../views/HistoryView.vue')
+    },
 ]
 
 const router = new VueRouter({
