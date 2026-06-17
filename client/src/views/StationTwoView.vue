@@ -57,8 +57,8 @@
 
 
               <div class="kanban-hero-title">Station: {{ station }}</div>
-                
                   <!-- :disabled="isGenerating || !isPrintAllowed"  -->
+                
               
               <div class="kanban-hero-meta">
                 <v-btn
@@ -450,23 +450,54 @@ export default {
         return;
       }
 
+      this.isGenerating = true;
+      try {
+        // Save the current batch to history before clearing.
+        // If this fails, abort so the operator does not lose data silently.
         const response = await api.post('/stationtwo/kanban/history', {
-          data : this.currentData,
+          data: this.currentData,
           kanban: selectedBatch.name
         });
         console.log('Saved current batch data to history:', response.data);
-      const dataSet = Number(selectedBatch.data_set) || this.dataSet || 40;
-      const emptyData = this.createTemporaryKanbanData(dataSet);
-      this.kanbanData = emptyData;
-      this.rowPage = 0;
-      this.scannedList = [];
-      this.manualScanInput = '';
 
-      const key = `stationTwoKanbanData_${selectedBatch.name}`;
-      try {
-        localStorage.setItem(key, JSON.stringify(emptyData));
-      } catch (err) {
-        console.error(`Failed to clear batch ${selectedBatch.name} in localStorage:`, err);
+        // Reset the board to an empty data set
+        const dataSet = Number(selectedBatch.data_set) || Number(this.dataSet) || 40;
+        const emptyData = this.createTemporaryKanbanData(dataSet);
+        this.kanbanData = emptyData;
+        this.rowPage = 0;
+        this.scannedList = [];
+        this.manualScanInput = '';
+
+        // Persist the cleared state
+        const key = `stationTwoKanbanData_${selectedBatch.name}`;
+        try {
+          localStorage.setItem(key, JSON.stringify(emptyData));
+        } catch (storageErr) {
+          console.error(`Failed to clear batch ${selectedBatch.name} in localStorage:`, storageErr);
+        }
+
+        this.playBeep(false);
+        Swal.fire({
+          icon: 'success',
+          title: 'Batch Save',
+          text: `"${selectedBatch.name}" has been saved to history and reset.`,
+          timer: 1500,
+          showConfirmButton: false
+        });
+      } catch (error) {
+        console.error('Failed to clear current batch:', error);
+        this.saveErrorLog('clearCurrentBatch', error);
+        this.playBeep(true);
+        Swal.fire({
+          icon: 'error',
+          title: 'Clear Failed',
+          //text: error.response?.data?.error || error.message || 'Could not save batch to history. The board was not cleared.',
+          text:  error.message || 'Could not save batch to history. The board was not cleared.',
+          allowEnterKey: true,
+          showConfirmButton: true
+        });
+      } finally {
+        this.isGenerating = false;
       }
     },
     async getKanbanDataFromLocalStorage(){

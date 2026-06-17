@@ -389,6 +389,7 @@ export default {
     this.normalizeDataSet();
 
 
+
     await this.generateAllQRCodes();
     this.$nextTick(() => this.generateBarcodesForCurrentSet());
 
@@ -406,6 +407,7 @@ export default {
           this.selectedDate = this.kanbanDateHistoryList[0].id;
           await this.fetchKanbanHistory(this.selectedDate , selectedBatch.name );
         }
+    console.log(this.currentData , "data")
 
 
         console.log(val)
@@ -514,37 +516,41 @@ export default {
             'RSBRH': 'RSB RH',
             'RSBLH': 'RSB LH',
             'RSB/LH': 'RSB LH',
-            'RSC': 'RSC'
+            'RSC': 'RSC',
+            'R/C': 'RSC'
+            
+          };
+
+          // Board headers available for matching
+          const boardHeaders = this.currentData.columns.map(c => c.header);
+
+          // The column label lives in the `kanban` field (e.g. "FSC LH KBB1", "RSC KBA9")
+          const resolveHeaderFromKanban = (kanbanField) => {
+            const cleaned = String(kanbanField || '').trim();
+            if (!cleaned) return null;
+            const candidate = cleaned.toUpperCase().startsWith('RSC')
+              ? 'RSC'
+              : cleaned.slice(0, 6).trim();
+            return boardHeaders.find(h => h.toUpperCase() === candidate.toUpperCase()) || null;
           };
 
           for (const item of historyItems) {
-            // Use available fields in a priority order
+            // Displayed value: the scanned QR string
             const raw = String(item.qr_kanban || item.value || item.kanban || item.barcode || '').trim();
             if (!raw) continue;
 
-            const normalized = raw.replace(/\s+/g, ' ');
-            const compact = normalized.replace(/\s+|\//g, '').toUpperCase();
+            // Primary: derive the column header from the `kanban` field
+            let foundHeader = resolveHeaderFromKanban(item.kanban);
 
-            // Find header token inside the string (handles attached numbers like F/CRH202604...)
-            let foundHeader = null;
-            for (const key of Object.keys(headerMap)) {
-              const keyClean = key.replace(/\s+|\//g, '').toUpperCase();
-              if (compact.includes(keyClean)) {
-                foundHeader = headerMap[key];
-                break;
-              }
-            }
-
+            // Fallback: parse a header token out of the scanned value itself
             if (!foundHeader) {
-              // As a final attempt, try matching common spaced forms
-              const spacedMatch = normalized.match(/(F\/CRH|FSC RH|F\/CLH|FSC LH|F\/BRH|FSB RH|F\/BLH|FSB LH|RSB \/RH|RSB RH|RSB \/LH|RSB LH|RSC)/i);
-              if (spacedMatch) {
-                const code = spacedMatch[1].replace(/\s+|\//g, '').toUpperCase();
-                for (const key of Object.keys(headerMap)) {
-                  if (key.replace(/\s+|\//g, '').toUpperCase() === code) {
-                    foundHeader = headerMap[key];
-                    break;
-                  }
+              const normalized = raw.replace(/\s+/g, ' ');
+              const compact = normalized.replace(/\s+|\//g, '').toUpperCase();
+              for (const key of Object.keys(headerMap)) {
+                const keyClean = key.replace(/\s+|\//g, '').toUpperCase();
+                if (compact.includes(keyClean)) {
+                  foundHeader = headerMap[key];
+                  break;
                 }
               }
             }

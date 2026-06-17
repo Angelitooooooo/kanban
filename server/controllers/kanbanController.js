@@ -31,49 +31,48 @@ const getKabanHistoryDate = async (req, res) => {
 
 
 const saveKabanHistory = async (req, res) => {
-    try {
-      let  { data,kanban } = req.body;
+  try {
+    const { data, kanban } = req.body;
 
+    if (!data || !Array.isArray(data.columns)) {
+      return res.status(400).json({ error: "Invalid payload: data.columns is required" });
+    }
 
-            let kanban_set = await db('kanban_qa')
-            .select('Kanban_set')
-            .where(
-            'kanban_set',
-            db('kanban_qa')
-            .max('kanban_set')
-            .where('kanban', 'like', `%${kanban}%`)
-            ).first();
+    // Determine the next kanban_set number for this kanban
+    const maxResult = await db('kanban_qa')
+      .where('kanban', 'like', `%${kanban}%`)
+      .max('kanban_set as maxSet')
+      .first();
 
-            if(!kanban_set){
-              console.log("No existing kanban_set found for kanban:", kanban);
-              kanban_set = { Kanban_set: 0 };
-            }
+    const nextKanbanSet = (Number(maxResult && maxResult.maxSet) || 0) + 1;
 
-      for (const column of data.columns) {
-        for (const item of column.items) {
-          if(Object.keys(item).length != 0){
-            const result = await db('Kanban_qa')
-              .select('id')
-              .where('qr_kanban', item.qrData)
-              .first();
-              if(result) {
-                await db('Kanban_qa')                .where('id', result.id)
-                .update({kanban_set: kanban_set.Kanban_set+1 , updated_at: new Date()});
-              }
-              console.log(result);
-          }
-        }
-      }
-      res.status(200).json(data);
+    // Collect all scanned QR values from the board
+    const qrValues = data.columns
+      .flatMap(column => column.items || [])
+      .filter(item => item && Object.keys(item).length !== 0 && item.qrData)
+      .map(item => item.qrData);
 
+    let updatedCount = 0;
+
+    // Assign the new kanban_set to each matching record
+    for (const qrData of qrValues) {
+      const updated = await db('kanban_qa')
+        .where('qr_kanban', qrData)
+        .update({ kanban_set: nextKanbanSet, updated_at: new Date() });
+      updatedCount += updated;
+    }
+
+    res.status(200).json({
+      message: "Kanban history saved successfully",
+      kanban_set: nextKanbanSet,
+      updatedCount,
+      data
+    });
   } catch (error) {
-    console.error("Error fetching kanbans:", error);
-    res.status(500).json({ error: "Failed to fetch kanbans", details: error.message });
+    console.error("Error saving kanban history:", error);
+    res.status(500).json({ error: "Failed to save kanban history", details: error.message });
   }
-
-  
-
-}
+};
 
 
 const getKabanHistory = async (req, res) => {

@@ -18,13 +18,14 @@ export const printStationOneLabels = async (items) => {
 
 	for (const item of items) {
 		// Generate QR code from item.qrData
+		console.log(item.manufacturingDate, "manufacturingDate"); // Check the QR data format
 		let qrImg = '';
-		const d = new Date();
+		// const d = new Date();
 		let formattedFinal =
-  d.getFullYear() +
-  String(d.getMonth() + 1).padStart(2, '0') +
-  String(d.getDate()).padStart(2, '0');
-		// const formatted = `${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}${String(d.getFullYear()).slice(-2)}`;
+  new Date(item.manufacturingDate).getFullYear() +
+  String(new Date(item.manufacturingDate).getMonth() + 1).padStart(2, '0') +
+  String(new Date(item.manufacturingDate).getDate()).padStart(2, '0');
+		// const formatted = `${String(new Date(item.manufacturingDate).getMonth()+1).padStart(2,'0')}${String(new Date(item.manufacturingDate).getDate()).padStart(2,'0')}${String(new Date(item.manufacturingDate).getFullYear()).slice(-2)}`;
 
 		let result = item.qrData.split(" ");
 
