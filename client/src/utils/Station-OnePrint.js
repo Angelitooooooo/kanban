@@ -20,11 +20,12 @@ export const printStationOneLabels = async (items) => {
 		// Generate QR code from item.qrData
 		console.log(item.manufacturingDate, "manufacturingDate"); // Check the QR data format
 		let qrImg = '';
-		// const d = new Date();
-		let formattedFinal =
-  new Date(item.manufacturingDate).getFullYear() +
-  String(new Date(item.manufacturingDate).getMonth() + 1).padStart(2, '0') +
-  String(new Date(item.manufacturingDate).getDate()).padStart(2, '0');
+		// Use the raw manufacturingDate string (YYYY-MM-DD) directly. Going through
+		// `new Date(...)` parses it as UTC midnight and reads it back in local time,
+		// which shifts the day across the UTC boundary and makes the QR date differ
+		// from the printed text date. Strip the dashes instead so both stay in sync.
+		const datePart = String(item.manufacturingDate).split('T')[0]; // "2026-06-15"
+		let formattedFinal = datePart.replace(/-/g, ''); // "20260615"
 		// const formatted = `${String(new Date(item.manufacturingDate).getMonth()+1).padStart(2,'0')}${String(new Date(item.manufacturingDate).getDate()).padStart(2,'0')}${String(new Date(item.manufacturingDate).getFullYear()).slice(-2)}`;
 
 		let result = item.qrData.split(" ");
@@ -74,7 +75,7 @@ export const printStationOneLabels = async (items) => {
 		}
 		// .replace("S", "/")
 		// Date formatting: YY/MM/DD
-		let dateStr = item.manufacturingDate.replace(/-/g, "/");
+		let dateStr = datePart.replace(/-/g, "/");
 		// if (item.manufacturingDate) {
 		// 	const d = new Date(item.manufacturingDate);
 		// 	dateStr = `${String(d.getFullYear()).slice(-2)}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;

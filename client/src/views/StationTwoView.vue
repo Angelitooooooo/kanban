@@ -57,14 +57,13 @@
 
 
               <div class="kanban-hero-title">Station: {{ station }}</div>
-                  <!-- :disabled="isGenerating || !isPrintAllowed"  -->
-                
               
               <div class="kanban-hero-meta">
                 <v-btn
                   color="success"
                   class="kanban-chip print-btn"
                   small
+                  :disabled="isGenerating || !isPrintAllowed"
                   @click="clearCurrentBatch"
                       :style="{
                     opacity: (isGenerating || !isPrintAllowed) ? 0.5 : 1,
