@@ -29,6 +29,7 @@ const {
   clearAllErrorLogs
 } = require("./controllers/errorLogController");
 const { ValidateKanbanBarcode ,ValidateKanbanQR , getAllKanbanQA, getKanbanQAByDateAndKanban , updateKanbanQAValidatedQR,updateKanbanQAValidatedBarcode,GetKanban } = require('./controllers/StationTwoController');
+const { getStationTwoStorage, saveStationTwoStorage } = require('./controllers/stationTwoStorageController');
 
 const router = express.Router();
 
@@ -97,6 +98,10 @@ router.get('/stationtwo/kanban/validate/barcode', ValidateKanbanBarcode);
 router.get('/stationtwo/kanban/history', getKabanHistory);
 router.post('/stationtwo/kanban/history', saveKabanHistory);
 router.get('/stationtwo/kanban/history/date', getKabanHistoryDate);
+
+// Station Two board storage (JSON file based, replaces localStorage)
+router.get('/stationtwo/kanban/storage', getStationTwoStorage);
+router.post('/stationtwo/kanban/storage', saveStationTwoStorage);
 
 
 

@@ -2,6 +2,9 @@
 node_modules
 /dist
 
+# Station Two board data (generated JSON storage, replaces localStorage)
+/data/stationTwo
+
 
 # local env files
 .env.local

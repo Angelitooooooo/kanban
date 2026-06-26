@@ -430,8 +430,23 @@ export default {
 
 			// update barcode for existing row
 			// add barcode here
+			//incorrect barcode format, show error and prevent adding barcode
+			if (value.startsWith('C') && (value.length <= 11 || value.length == 14)) {
+				// your code here
+				this.playBeep(true);
+				Swal.fire({
+					title: 'Error',
+					text: 'Invalid barcode format. Please scan a valid barcode.',
+					icon: 'error',
+					timer: 4000,
+					timerProgressBar: true,
+					showConfirmButton: false
+				});
+				return;
+
+			}
 			// C0006631331L
-			if (value.startsWith('C') && value.length < 13) {
+			if (value.startsWith('C') && value.length >= 12 && value.length <= 13) {
 
 				const LastItemUpdated = this.rows.reduce((max, item) => item.id > max.id ? item : max);
 				const results = this.rows.filter(item => item.qr.includes(LastItemUpdated.qr.slice(0, -5)))
@@ -517,6 +532,7 @@ export default {
 					});
 				}
 			}
+			
         },
         async loadKanbanQA() {
             try {

@@ -57,13 +57,14 @@
 
 
               <div class="kanban-hero-title">Station: {{ station }}</div>
+                  <!-- :disabled="isGenerating || !isPrintAllowed" -->
+
               
               <div class="kanban-hero-meta">
                 <v-btn
                   color="success"
                   class="kanban-chip print-btn"
                   small
-                  :disabled="isGenerating || !isPrintAllowed"
                   @click="clearCurrentBatch"
                       :style="{
                     opacity: (isGenerating || !isPrintAllowed) ? 0.5 : 1,
@@ -78,12 +79,12 @@
                   Save Batch
                 </v-btn>
                 <v-chip class="kanban-chip" label>Rows {{ rowRangeLabel }}</v-chip>
-
+                <!-- :disabled="isGenerating || !isPrintAllowed"  -->
               <v-btn
                   color="red"
                   class="kanban-chip print-btn"
                   :loading="isGenerating"
-                  :disabled="isGenerating || !isPrintAllowed" 
+                  
                   @click="showPrintDialog = true"
                   :style="{
                     opacity: (isGenerating || !isPrintAllowed) ? 0.5 : 1,
@@ -467,12 +468,14 @@ export default {
         this.scannedList = [];
         this.manualScanInput = '';
 
-        // Persist the cleared state
-        const key = `stationTwoKanbanData_${selectedBatch.name}`;
+        // Persist the cleared state to the JSON file storage
         try {
-          localStorage.setItem(key, JSON.stringify(emptyData));
+          await api.post('/stationtwo/kanban/storage', {
+            name: selectedBatch.name,
+            data: emptyData
+          });
         } catch (storageErr) {
-          console.error(`Failed to clear batch ${selectedBatch.name} in localStorage:`, storageErr);
+          console.error(`Failed to clear batch ${selectedBatch.name} in JSON file:`, storageErr);
         }
 
         this.playBeep(false);
@@ -503,12 +506,12 @@ export default {
       try {
         const selectedBatch = this.batchList.find(b => b.id === this.selectedBatchId);
         if (!selectedBatch) return;
-        // Persist selection so it survives page reloads
+        // Persist selection so it survives page reloads (small value, kept in localStorage)
         localStorage.setItem('stationTwoSelectedBatch', selectedBatch.name);
-        const key = `stationTwoKanbanData_${selectedBatch.name}`;
-        const stored = localStorage.getItem(key);
-        if (!stored) return;
-        const parsed = JSON.parse(stored);
+        const response = await api.get('/stationtwo/kanban/storage', {
+          params: { name: selectedBatch.name }
+        });
+        const parsed = response.data?.data;
         if (Array.isArray(parsed) && parsed.length > 0) {
           this.kanbanData = parsed;
           
@@ -541,44 +544,47 @@ export default {
           this.$forceUpdate();
         }
       } catch (err) {
-        console.error('Failed to load kanbanData from localStorage:', err);
+        console.error('Failed to load kanbanData from JSON file:', err);
       }
     },
-    initializeAllBatchesInLocalStorage() {
-      // Initialize temporary data for all batches in batchList
-      this.batchList.forEach(batch => {
-        const key = `stationTwoKanbanData_${batch.name}`;
-        const stored = localStorage.getItem(key);
+    async initializeAllBatchesInLocalStorage() {
+      // Initialize temporary data for all batches in batchList (stored in JSON files)
+      await Promise.all(this.batchList.map(async (batch) => {
         const dataSet = batch.data_set || this.dataSet || 40;
-        
-        if (!stored) {
-          // Create new data if not in localStorage
-          const tempData = this.createTemporaryKanbanData(dataSet);
-          try {
-            localStorage.setItem(key, JSON.stringify(tempData));
-          } catch (err) {
-            console.error(`Failed to initialize batch ${batch.name} in localStorage:`, err);
-          }
-        } else {
-          // Data exists - verify it has the correct size
-          const parsed = JSON.parse(stored);
-          const currentSize = parsed[0]?.columns[0]?.items?.length || 0;
-          
-          if (currentSize < dataSet) {
-            // Expand arrays to match dataSet
-            parsed[0].columns.forEach(col => {
-              while (col.items.length < dataSet) {
-                col.items.push({});
-              }
+        try {
+          const response = await api.get('/stationtwo/kanban/storage', {
+            params: { name: batch.name }
+          });
+          const stored = response.data?.data;
+
+          if (!Array.isArray(stored) || stored.length === 0) {
+            // Create new data if not yet stored
+            const tempData = this.createTemporaryKanbanData(dataSet);
+            await api.post('/stationtwo/kanban/storage', {
+              name: batch.name,
+              data: tempData
             });
-            try {
-              localStorage.setItem(key, JSON.stringify(parsed));
-            } catch (err) {
-              console.error(`Failed to expand batch ${batch.name}:`, err);
+          } else {
+            // Data exists - verify it has the correct size
+            const currentSize = stored[0]?.columns[0]?.items?.length || 0;
+
+            if (currentSize < dataSet) {
+              // Expand arrays to match dataSet
+              stored[0].columns.forEach(col => {
+                while (col.items.length < dataSet) {
+                  col.items.push({});
+                }
+              });
+              await api.post('/stationtwo/kanban/storage', {
+                name: batch.name,
+                data: stored
+              });
             }
           }
+        } catch (err) {
+          console.error(`Failed to initialize batch ${batch.name} in JSON file:`, err);
         }
-      });
+      }));
     },
     createTemporaryKanbanData(totalRows = 40) {
       // Create a temporary kanban data structure with empty items
@@ -697,7 +703,7 @@ export default {
             if (!this.scannedList.includes(value)) {
               this.scannedList.push(value);
             }
-            this.saveKanbanDataToLocalStorage();
+            await this.saveKanbanDataToLocalStorage();
             this.$forceUpdate();
           } catch (error) {
             console.error('Scan error:', error);
@@ -738,14 +744,16 @@ export default {
         },
 
         findFirstEmptySlot(columnIndex) {
-          // Find the first empty slot in the specified column
-          const columns = this.currentData.columns;
-          if (columnIndex < 0 || columnIndex >= columns.length) return -1;
+          const column = this.currentData.columns[columnIndex];
+          if (!column) return -1;
 
-          const column = columns[columnIndex];
-          return column.items.findIndex(item => !item || Object.keys(item).length === 0);
+          return column.items.findIndex(item =>
+            item &&
+            typeof item === "object" &&
+            !Array.isArray(item) &&
+            Object.keys(item).length === 0
+          );
         },
-
         async placeQROnBoard(value) {
           // Extract the column header from the QR code
           const headerName = this.extractColumnHeader(value);
@@ -781,6 +789,12 @@ export default {
           // Generate QR code
           const qrCodeData = await this.convertToQRCode(value);
 
+          // Remove any existing item with the same qrData to avoid duplicates on the board.
+          // Compare normalized values (ignore whitespace/slashes/case) so near-identical
+          // scans of the same item are treated as duplicates even when not strictly equal.
+          this.removeDuplicateQrData([this.currentData]);
+
+
           // Place item on the board
           this.$set(this.currentData.columns[columnIndex].items, itemIndex, {
             qrData: value,
@@ -792,6 +806,35 @@ export default {
           if (targetPage !== this.rowPage && targetPage >= 0 && targetPage <= this.maxRowPage) {
             this.rowPage = targetPage;
           }
+        },
+        removeDuplicateQrData(data) {
+          data.forEach(board => {
+            board.columns.forEach(column => {
+              const seen = new Set();
+
+              column.items = column.items.map(item => {
+                // Skip empty objects
+                if (
+                  !item ||
+                  Object.keys(item).length === 0 ||
+                  !item.qrData
+                ) {
+                  return item;
+                }
+
+                // Duplicate qrData found
+                if (seen.has(item.qrData)) {
+                  return {};
+                }
+
+                // First occurrence
+                seen.add(item.qrData);
+                return item;
+              });
+            });
+          });
+
+          return data;
         },
 
         async validateQRScan(value, currentBatch) {
@@ -880,8 +923,8 @@ export default {
               id : index + 1, // Assign a unique ID based on index (or use item.id if available)
               name : item.name
             }));
-            // Initialize temporary data in localStorage for each batch BEFORE loading
-            this.initializeAllBatchesInLocalStorage();
+            // Initialize temporary data in the JSON file storage for each batch BEFORE loading
+            await this.initializeAllBatchesInLocalStorage();
             if (this.batchList.length > 0) {
               // Restore previously selected batch from localStorage, fallback to first batch
               const savedBatchName = localStorage.getItem('stationTwoSelectedBatch');
@@ -905,8 +948,8 @@ export default {
               data_set : this.$store.state.user?.data_set || this.dataSet // Use data_set from user state or fallback to local dataSet
             }));
             this.batchList = kanbanQAData; // Assuming you want to populate batchList with this data
-            // Initialize temporary data in localStorage for each batch
-            this.initializeAllBatchesInLocalStorage();
+            // Initialize temporary data in the JSON file storage for each batch
+            await this.initializeAllBatchesInLocalStorage();
             if (this.batchList.length > 0) {
               this.selectedBatchId = this.batchList[0].id;
               this.loadBatchData()
@@ -1226,7 +1269,7 @@ export default {
             }
             
             this.$forceUpdate();
-            this.saveKanbanDataToLocalStorage();
+            await this.saveKanbanDataToLocalStorage();
           } catch (error) {
             this.saveErrorLog('loadBatchData', error);
             this.error = 'Failed to load batch data';
@@ -1237,29 +1280,31 @@ export default {
             this.isGenerating = false;
           }
         },
-        saveKanbanDataToLocalStorage() {
+        async saveKanbanDataToLocalStorage() {
           try {
             const selectedBatch = this.batchList.find(b => b.id === this.selectedBatchId);
             if (!selectedBatch) return;
-            const key = `stationTwoKanbanData_${selectedBatch.name}`;
-            localStorage.setItem(key, JSON.stringify(this.kanbanData));
+            await api.post('/stationtwo/kanban/storage', {
+              name: selectedBatch.name,
+              data: this.kanbanData
+            });
           } catch (err) {
-            console.error('Failed to save kanbanData to localStorage:', err);
+            console.error('Failed to save kanbanData to JSON file:', err);
           }
         },
-        loadKanbanDataFromLocalStorage() {
+        async loadKanbanDataFromLocalStorage() {
           try {
             const selectedBatch = this.batchList.find(b => b.id === this.selectedBatchId);
             if (!selectedBatch) return;
-            const key = `stationTwoKanbanData_${selectedBatch.name}`;
-            const stored = localStorage.getItem(key);
-            if (!stored) return;
-            const parsed = JSON.parse(stored);
+            const response = await api.get('/stationtwo/kanban/storage', {
+              params: { name: selectedBatch.name }
+            });
+            const parsed = response.data?.data;
             if (Array.isArray(parsed) && parsed.length > 0) {
               this.kanbanData = parsed;
             }
           } catch (err) {
-            console.error('Failed to load kanbanData from localStorage:', err);
+            console.error('Failed to load kanbanData from JSON file:', err);
           }
         },
         async createNewBatch() {
