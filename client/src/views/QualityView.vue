@@ -88,6 +88,10 @@ export default {
 		};
 	},
 	mounted() {
+		if(this.$store.state.user.isAdmin == 1){
+			window.history.back();
+		}
+		console.log(this.$store.state.user.isAdmin, "user condition");
 		window.addEventListener('keydown', this.onGlobalScannerKeydown);
 		this.loadKanbanQA();
 		this.focusInput();

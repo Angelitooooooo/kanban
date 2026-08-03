@@ -86,7 +86,20 @@ const createKanbanQA = async (req, res) => {
       qr_kanban: null,
       barcode: null,
       status,
-      created_at: date ? new Date(date) : new Date()
+      // created_at: date ? new Date(date) : new Date()
+      created_at: date
+  ? (() => {
+      const d = new Date(date);
+      const now = new Date();
+      d.setHours(
+        now.getHours(),
+        now.getMinutes(),
+        now.getSeconds(),
+        now.getMilliseconds()
+      );
+      return d;
+    })()
+  : new Date()
     });
 
     const inserted = await db('Kanban_qa').where('id', insertedId).first();

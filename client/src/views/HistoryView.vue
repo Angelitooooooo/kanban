@@ -115,9 +115,15 @@
                           >
                             <div class="slot-inner-pro qr-elevate-pro">
                               <div class="qr-col-pro">
-                                <center>
+                                <!-- <center>
                                   <img v-if="column.items[rowIndex] && column.items[rowIndex].qrCode" :src="column.items[rowIndex].qrCode" alt="QR Code" class="qr-code-pro" />
+                                </center> -->
+
+                                <center>
+                                  <img v-if="column.items[rowIndex] && column.items[rowIndex].qrData" :src="qrCodeCache" alt="QR Code" class="qr-code-pro" />
                                 </center>
+
+
                               </div>
                                <div style="text-align: center; width: 100%;">
                                 <p v-if="column.items[rowIndex] && column.items[rowIndex].qrData" style="width: 100%; max-width: 100px; height: auto; object-fit: contain;">
@@ -282,6 +288,7 @@ export default {
       kanbanColumns: ['FSC LH', 'FSC RH', 'FSB LH', 'FSB RH', 'RSB RH', 'RSB LH', 'RSC'],
       kanbanHistory: [],
       kanbanDateHistoryList: [],
+      qrCodeCache:null,
       kanbanData: [
         {
           columns: [
@@ -384,13 +391,24 @@ export default {
   },
   async mounted() {
     this.dataSet = this.$store.state.user?.data_set || this.dataSet;
+
+
+    this.qrCodeCache = await QRCode.toDataURL(String(this.$store.state.user.id), {
+        errorCorrectionLevel: 'H',
+        type: 'image/png',
+        quality: 0.92,
+        margin: 1,
+        width: 110
+      })
+
+
     window.addEventListener('keydown', this.onGlobalScannerKeydown);
     await this.getModel();
     this.normalizeDataSet();
 
 
 
-    await this.generateAllQRCodes();
+    // await this.generateAllQRCodes();
     this.$nextTick(() => this.generateBarcodesForCurrentSet());
 
   },
@@ -407,10 +425,7 @@ export default {
           this.selectedDate = this.kanbanDateHistoryList[0].id;
           await this.fetchKanbanHistory(this.selectedDate , selectedBatch.name );
         }
-    console.log(this.currentData , "data")
 
-
-        console.log(val)
       // kanbanDateHistoryList
 
       },
@@ -493,7 +508,6 @@ export default {
           if (!Array.isArray(historyItems)) {
             return;
           }
-          console.log('Mapping kanban history to board with items:', historyItems);
 
           this.clearBoardItems();
 
@@ -626,7 +640,6 @@ export default {
               this.selectedBatchId = this.batchList[0].id;
               const selectedBatch = this.batchList.find(b => b.id === this.selectedBatchId);
               const res = await api.get(`/stationtwo/kanban/history/date?kanban=${selectedBatch.name}`);
-              console.log(res.data)
               this.kanbanDateHistoryList = res.data.map(item => ({
                 id: item.kanban_set,
                 name: `(${item.kanban_set}) - ${item.updated_at})`

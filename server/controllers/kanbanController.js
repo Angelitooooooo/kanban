@@ -2,7 +2,6 @@ const { db } = require("../db");
 const getKabanHistoryDate = async (req, res) => {
 
       let  { kanban } = req.query;
-      console.log("test", kanban);
   try {
     
         const result = await db('kanban_qa')
@@ -77,7 +76,6 @@ const saveKabanHistory = async (req, res) => {
 
 const getKabanHistory = async (req, res) => {
     const { set,kanban } = req.query;
-    console.log("Fetching history for kanban_set:", set);
 
   try {
       const kanbanSetData = await db('kanban_qa')
@@ -335,7 +333,6 @@ const createKanban = async (req, res) => {
     
     const newKanban = await db('kanbans').where('id', insertId).first();
     
-    console.log("New batch created:", newKanban);
     res.status(201).json(newKanban);
   } catch (error) {
     console.error("Error creating kanban:", error);
@@ -391,15 +388,6 @@ const saveQRScan = async (req, res) => {
             station: station || existingRow.station,
             updated_at: new Date()
           });
-        console.log("QR scan updated existing row:", {
-          id: existingRow.id,
-          columnName: column,
-          row,
-          batchID,
-          rowPage: (rowPage !== undefined && rowPage !== null) ? rowPage : (existingRow.rowPage !== undefined && existingRow.rowPage !== null ? existingRow.rowPage : 1),
-          value: value,
-          station: station || existingRow.station
-        });
         return res.status(200).json({
           status: "updated",
           id: existingRow.id,
@@ -425,15 +413,7 @@ const saveQRScan = async (req, res) => {
         value: value,
         station: station || 2
       });
-      console.log("QR scan saved to database:", {
-        id: insertId,
-        columnName: column,
-        row,
-        batchID,
-        rowPage: (rowPage !== undefined && rowPage !== null) ? rowPage : 1,
-        value,
-        station
-      });
+
       return res.status(201).json({ 
         status: "success", 
         id: insertId,
@@ -627,14 +607,6 @@ const saveBarcodeScan = async (req, res) => {
           updated_at: new Date()
         });
 
-      console.log("Barcode updated for existing QR code:", {
-        id: matchedRecord.id,
-        columnName,
-        row: matchedRecord.row,
-        qrValue: matchedRecord.value,
-        barcodeValue,
-        batchID
-      });
 
       res.status(200).json({ 
         status: "updated",
@@ -654,15 +626,6 @@ const saveBarcodeScan = async (req, res) => {
         station: station || 2
       });
 
-      console.log("New barcode record created (no matching QR):", {
-        id: insertId,
-        columnName,
-        row,
-        rowPage,
-        barcodeValue,
-        batchID,
-        station
-      });
 
       res.status(201).json({ 
         status: "created",

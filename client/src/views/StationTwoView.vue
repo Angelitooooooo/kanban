@@ -84,7 +84,7 @@
                   color="red"
                   class="kanban-chip print-btn"
                   :loading="isGenerating"
-                  
+                  :disabled="isGenerating || !isPrintAllowed"
                   @click="showPrintDialog = true"
                   :style="{
                     opacity: (isGenerating || !isPrintAllowed) ? 0.5 : 1,
@@ -129,8 +129,11 @@
                           >
                             <div class="slot-inner-pro qr-elevate-pro">
                               <div class="qr-col-pro">
-                                <center>
+                                <!-- <center>
                                   <img v-if="column.items[rowIndex] && column.items[rowIndex].qrCode" :src="column.items[rowIndex].qrCode" alt="QR Code" class="qr-code-pro" />
+                                </center> -->
+                                <center>
+                                  <img v-if="column.items[rowIndex] && column.items[rowIndex].qrData" :src="qrCodeCache" alt="QR Code" class="qr-code-pro" />
                                 </center>
                               </div>
                                <div style="text-align: center; width: 100%;">
@@ -274,6 +277,7 @@ export default {
       rowPage: 0,
       rowsPerPage: 5,
       dataSet : 40,
+      qrCodeCache: null,
       isGenerating: false,
       showPrintDialog:false,
       delayedLoading: false,
@@ -392,11 +396,20 @@ export default {
   },
   async mounted() {
     this.dataSet = this.$store.state.user?.data_set || this.dataSet;
+
+     this.qrCodeCache = await QRCode.toDataURL(String(this.$store.state.user.id), {
+        errorCorrectionLevel: 'H',
+        type: 'image/png',
+        quality: 0.92,
+        margin: 1,
+        width: 110
+      })
     window.addEventListener('keydown', this.onGlobalScannerKeydown);
     await this.getModel();
     this.normalizeDataSet();
-    await this.generateAllQRCodes();
+    // await this.generateAllQRCodes();
     this.$nextTick(() => this.generateBarcodesForCurrentSet());
+
     // Listen for socket events to refresh data
     // this.$socket.on('refresh-kanban-prints', () => {
     //   // this.fetchBatches();
@@ -425,10 +438,30 @@ export default {
     // this.$socket.off('refresh-kanban-prints');
   },
   methods: {
-            async printPageFromDialog() {
-          this.showPrintDialog = false;
-          await this.printPage();
-        },
+    sanitizeForHistoryPayload(value) {
+      if (Array.isArray(value)) {
+        return value.map(item => this.sanitizeForHistoryPayload(item));
+      }
+
+      if (value && typeof value === 'object') {
+        return Object.entries(value).reduce((acc, [key, nestedValue]) => {
+          const isBase64Image = typeof nestedValue === 'string' && nestedValue.startsWith('data:image/');
+          const isImageField = ['qrCode', 'barcodeImg', 'scannedBarcodeImg'].includes(key);
+
+          if (!isBase64Image && !isImageField) {
+            acc[key] = this.sanitizeForHistoryPayload(nestedValue);
+          }
+
+          return acc;
+        }, {});
+      }
+
+      return value;
+    },
+    async printPageFromDialog() {
+      this.showPrintDialog = false;
+      await this.printPage();
+    },
     async clearCurrentBatch(){
       const selectedBatch = this.batchList.find(b => b.id === this.selectedBatchId);
       if (!selectedBatch) return;
@@ -454,8 +487,9 @@ export default {
       try {
         // Save the current batch to history before clearing.
         // If this fails, abort so the operator does not lose data silently.
+        const historyPayload = this.sanitizeForHistoryPayload(this.currentData);
         const response = await api.post('/stationtwo/kanban/history', {
-          data: this.currentData,
+          data: historyPayload,
           kanban: selectedBatch.name
         });
         console.log('Saved current batch data to history:', response.data);
@@ -560,9 +594,10 @@ export default {
           if (!Array.isArray(stored) || stored.length === 0) {
             // Create new data if not yet stored
             const tempData = this.createTemporaryKanbanData(dataSet);
+            const storagePayload = this.sanitizeForHistoryPayload(tempData);
             await api.post('/stationtwo/kanban/storage', {
               name: batch.name,
-              data: tempData
+              data: storagePayload
             });
           } else {
             // Data exists - verify it has the correct size
@@ -575,9 +610,10 @@ export default {
                   col.items.push({});
                 }
               });
+              const storagePayload = this.sanitizeForHistoryPayload(stored);
               await api.post('/stationtwo/kanban/storage', {
                 name: batch.name,
-                data: stored
+                data: storagePayload
               });
             }
           }
@@ -639,6 +675,7 @@ export default {
           }
 
           const scanType = this.detectScanType(value);
+
           const currentBatch = this.batchList.find(b => b.id === this.selectedBatchId);
 
           // Check for duplicate scan
@@ -664,6 +701,7 @@ export default {
             const hasSpace = targetColumn
               ? targetColumn.items.some(item => !item || Object.keys(item).length === 0)
               : false;
+              console.log('Checking space for column:', headerName, 'Has space:', hasSpace);
             if (!hasSpace) {
               this.playBeep(true);
               Swal.fire({
@@ -768,9 +806,15 @@ export default {
           
           if (columnIndex === -1) {
             console.warn('Column not found:', headerName);
+
+            await api.post('/logs', {
+              message : `Scanned value: ${value} headerName: ${headerName} not found in columns at Station Two`,
+            });
             return;
           }
-
+            await api.post('/logs', {
+              message : `Scanned value: ${value} headerName: ${headerName} placed in column index: ${columnIndex} at Station Two`,
+            });
           // Find the first empty slot in this column
           const itemIndex = this.findFirstEmptySlot(columnIndex);
           if (itemIndex === -1) {
@@ -1284,9 +1328,10 @@ export default {
           try {
             const selectedBatch = this.batchList.find(b => b.id === this.selectedBatchId);
             if (!selectedBatch) return;
+            const storagePayload = this.sanitizeForHistoryPayload(this.kanbanData);
             await api.post('/stationtwo/kanban/storage', {
               name: selectedBatch.name,
-              data: this.kanbanData
+              data: storagePayload
             });
           } catch (err) {
             console.error('Failed to save kanbanData to JSON file:', err);

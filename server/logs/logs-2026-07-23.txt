@@ -1,0 +1,1 @@
+[2026-07-23T05:40:31.108Z] Scanned value: KBB2  R/BLH202606160014C headerName: RSB LH placed in column index: 5 at Station Two

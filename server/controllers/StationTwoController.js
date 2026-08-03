@@ -11,7 +11,6 @@ const ValidateKanbanBarcode = async (req, res) => {
 			.select('*')
 			.where('barcode', barcode)
 			.first();
-			console.log(result)
 			if(result.isValidatedBarcode == 1) {
 				return res.status(400).json({ error: 'Barcode is already validated.' });
 			}
@@ -102,7 +101,6 @@ const getAllKanbanQA = async (req, res) => {
 			query = query.whereRaw('DATE(created_at) = ?', [date]);
 		}
 		const results = await query.orderBy('id', 'asc');
-		console.log(results)
 		
 		// Remove duplicate kanban entries based on last 4 characters
 		// const uniqueResults = [];
@@ -213,7 +211,6 @@ const getKanbanQAByDateAndKanban = async (req, res) => {
 		})
 		.orderBy('id', 'asc');
 
-		console.log(results)
 		const formatted = results.map(item => {
 		// remove last 8-digit date first
 

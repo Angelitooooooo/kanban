@@ -30,6 +30,7 @@ const {
 } = require("./controllers/errorLogController");
 const { ValidateKanbanBarcode ,ValidateKanbanQR , getAllKanbanQA, getKanbanQAByDateAndKanban , updateKanbanQAValidatedQR,updateKanbanQAValidatedBarcode,GetKanban } = require('./controllers/StationTwoController');
 const { getStationTwoStorage, saveStationTwoStorage } = require('./controllers/stationTwoStorageController');
+const { saveLog } = require("./controllers/logsController");
 
 const router = express.Router();
 
@@ -85,6 +86,9 @@ router.get("/error-logs", getAllErrorLogs);
 router.get("/error-logs/route/:route", getErrorLogsByRoute);
 router.delete("/error-logs/:id", deleteErrorLog);
 router.delete("/error-logs", clearAllErrorLogs);
+
+// Activity Logs Routes
+router.post("/logs", saveLog);
 
 // Station Two API
 router.get('/stationtwo/kanbanqa', getAllKanbanQA);

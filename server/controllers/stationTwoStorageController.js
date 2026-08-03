@@ -5,11 +5,18 @@ const path = require("path");
 // Directory where each batch's kanban board data is persisted as a JSON file.
 // This replaces the browser localStorage which is capped at ~5MB.
 const STORAGE_DIR = path.join(__dirname, "..", "data", "stationTwo");
+const LOGS_DIR = path.join(__dirname, "..", "logs");
 
 // Build a safe file name from a batch name so it can be used on disk.
 const fileFor = (name) => {
   const safe = String(name).replace(/[^a-zA-Z0-9_\- ]/g, "_").trim();
   return path.join(STORAGE_DIR, `${safe}.json`);
+};
+
+const backupFileFor = (name, timestamp) => {
+  const safe = String(name).replace(/[^a-zA-Z0-9_\- ]/g, "_").trim();
+  const safeTimestamp = timestamp.toISOString().replace(/[:.]/g, "-");
+  return path.join(LOGS_DIR, `${safe}-${safeTimestamp}.json`);
 };
 
 const ensureDir = async () => {
@@ -54,10 +61,15 @@ const saveStationTwoStorage = async (req, res) => {
     if (!name) {
       return res.status(400).json({ error: "Field name is required." });
     }
-    console.log(data);
 
     await ensureDir();
-    await fsp.writeFile(fileFor(name), JSON.stringify(data), "utf8");
+    const file = fileFor(name);
+    if (fs.existsSync(file)) {
+      await fsp.mkdir(LOGS_DIR, { recursive: true });
+      await fsp.copyFile(file, backupFileFor(name, new Date()));
+    }
+
+    await fsp.writeFile(file, JSON.stringify(data), "utf8");
 
     res.status(200).json({ success: true, name });
   } catch (error) {
